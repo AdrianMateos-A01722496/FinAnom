@@ -1,0 +1,52 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTTRJ.CPY                                               */
+/* DESCRIPCION: Catalogo de Tarjetas de Credito y Formas de Pago           */
+/*       LLAVE: KEY = j_clave                                              */
+/*       FECHA: 2000/08/06                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+char    j_cve[6];          /* Clave de la Forma de Pago                    */
+char    j_des[30];         /* Descripcion de la Forma de Pago              */
+char    j_tarjeta;  	   /* Tipo de la Forma de Pago                     */
+						   /*     E -> Efectivo                            */
+						   /*     T -> Tarjeta                             */
+						   /*     X -> Cuentas X Cobrar                    */
+						   /*     C -> Cupon                               */
+						   /*     H -> Huesped                             */
+						   /*     S -> Especial                            */
+char    alinea;			   /* Relleno para alinear la estructura           */
+double  j_lim_cre;         /* Limite de Piso                               */
+
+fecha   fec_alta;          /* Fecha de Alta de la Forma de Pago            */
+hora    hra_alta;          /* Hora de Alta de la Forma de Pago             */
+char    usr_alta[3];       /* Usuario que dio de Alta la Forma de Pago     */
+
+fecha   fec_modi;          /* Fecha de Ultima Modificacion                 */
+hora    hra_modi;          /* Hora de Ultima Modificacion                  */
+char    usr_modi[3];       /* Ultimo Usuario que Modifico la Forma de Pago */
+
+char    tipo_modi[2];      /* Tipo de la Ultima Modificacion:              */
+                           /*      01 -> Alta Manual                       */ 
+                           /*      02 -> Modificacion Manual               */
+                           /*      03 -> Alta Interface                    */
+                           /*      04 -> Modificacion Interface            */
+
+char    auto_en_linea[2];  /* Maneja autorizaciones de tarjetas en linea   */
+char    captura_cta;       /*Forzar captura numero de cta o referencia  S/N*/
+char    desc_factura[100]; /* Descripcion que se usara para aparecer en la factura */
+
+char    afi_hotel[30];     /*Numero de afilación hotel No Fibra    		   */
+char    afi_arr[30];       /*Numero de afilación hotel fibra*/
+char    afi_otr[30];       /*Numero de afilación hotel fibra*/
+char    trj_presente;      /*Bandera para identifcar llamadas pinpad o ws boveda*/
+
+char    cod_moneda[10];	   /*Codigo de la moneda que se usara para enviar a la boveda los cargos*/
+char	cod_pais[10];      /*Codigo del país que se usara para enviar a la bóveda los cargos*/
+char    tar_amexco;        /*Se usara para identificar si la tarjeta pertenece al grupo de amexco (este llevara un S/N) */
+char    reautoriza;        /* Si invocar y/o denegar el proceso de PreAutorizaci n Bancaria  */
+char    t_cod_ajuste[6];   /*Código de la transacción de ajuste*/
+char    espacios_oracle[10];
+} HOTTRJ;

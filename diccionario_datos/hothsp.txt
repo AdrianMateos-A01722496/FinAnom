@@ -1,0 +1,257 @@
+
+
+
+
+
+
+
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTHSP.CPY                                               */
+/* DESCRIPCION: Almacenar toda informacion del Huesped referente a su      */
+/*              Reservacion, Registro Y Folio                              */
+/*      LLAVES:    RESERVACION = h_res_cve                                 */
+/*                      NOMBRE = h_nom                                     */
+/*                    COMPANIA = h_cia_hsp                                 */
+/*               FECHA_LLEGADA = h_tar_ano + h_tar_mes                     */
+/*                FECHA_SALIDA = h_fec_reg                                 */
+/*              NUM_HABITACION = h_num_hab                                 */
+/*                TIPO_HUESPED = h_tpo_hsp                                 */
+/*                 CLAVE_GRUPO = h_cod_gpo                                 */
+/*               AGENCIA_VIAJE = h_cod_age                                 */
+/*                      STATUS = h_status                                  */
+/*                     STA_HAB = h_status + h_num_hab                      */
+/*                     STA_NOM = h_status + h_nom                          */
+/*                   RESERVA_2 = h_cod_reserva                             */
+/*                         GNR = h_gnr                                     */
+/*       FECHA: 2000/10/12                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+ireg ibuff;                       /* inicio de registro                      */
+/* MANEJO DEL REGISTRO ------------------------------------------------------*/
+char  h_status[2];               /* 00 RESERVACION O (R)REGISTRO             * 
+                                  * 01 RESERVACION CANCELADA                 *
+                                  * 02 NO SHOW                               *
+                                  * 03 RESERVACION EN TRANSICION             *
+                                  * 08 REGISTRO EN TRANSITO                  * 
+                                  * 09 PREREGISTRO                           * 
+                                  * 10 EN CASA (REGISTRO)                    * 
+                                  * 50 SALIDA                                */
+
+/* RESERVACION --------------------------------------------------------------*/
+struct                           /* CLAVE DE LA RESERVACION                  */
+   {
+   char tpo;                     /* (G)RUPO O (I)NDIVIDUAL                 */
+   char num[8];                  /* NUMERO DE RESERVACION                  */
+   char mbo[6];                  /* SI ES GRUPO NUMERO DE MIEMBRO (0 P/IND)*/
+   } h_res_cve;
+
+fecha h_res_fec;                 /* FECHA DE RESERVACION                     */
+hora  h_res_hra;                 /* HORA DE RESERVACION                      */
+nomb  h_res_sol;                 /* NOMBRE DEL SOLICITANTE                   */
+char  h_res_cnf;                 /* S/N IMPRIME CONFIRMACION?                */
+char  h_res_hab[6];              /* HABITACION PRE-ASIGNADA (SI HAY)  2da hab*/
+char  h_res_gar;                 /* 1= GARANTIZADA    0 = NO GARANTIZADA     */
+char  h_cod_gpo[15];             /* CODIGO DE GRUPO                       */
+
+/* $$$$$$$$$$$$$$$$$$$$$$$$$$$$----------------------------------------------*/
+
+char   h_tpo_plan[6];               /* TIPO DEL PLAN USADO                   */
+char   h_cod_age[9];                /* CODIGO DE CLIENTES                    */
+char   h_cupon_age[8];              /* CUPON DE LA AGENCIA                   */
+
+CNT    h_tpo_tfa;                   /* TIPO DE TARIFA                        */
+double h_tfa;                       /* TARIFA DIARIA                         */
+double h_dep_sol;                   /* DEPOSITO SOLICITADO                   */
+char   h_for_pgo[6];                /* FORMA DE PAGO                         */
+char   alinea[2];
+double h_lim_cre;                   /* LIMITE DE CREDITO                     */
+char   h_tpo_mon[3];                /* TIPO DE MONEDA A USAR                 */
+char   h_tar_cre[18];               /* NUMERO DE TARJETA DE CREDITO          */
+
+/* DATOS GENERALES DEL HUESPED ----------------------------------------------*/
+
+nomb  h_nom;                     /* NOMBRE DEL HUESPED                       */
+nomb  h_cia_hsp;                 /* COMPANIA                                 */
+nomb  h_cnt_hsp;                 /* NOMBRE DEL CONTACTO                      */
+
+
+char  h_ciu[60];                 /* CIUDAD                                   */
+char  h_edo[6];                  /* CODIGO DE ESTADO                         */
+char  h_pai[6];                  /* CODIGO DE PAIS                           */
+char  h_promo[3];                /* SI VIENE DE ALGUNA PROMOCION   (clave)   */
+char  h_num_vip[8];              /* NUMERO DE HUESPED ASIGNADO POR VIP       */
+char  h_sal_exp;                 /* S/N QUIERE SALIDA EXPRESS                */
+
+     
+
+/* LLEGADA ------------------------------------------------------------------*/
+
+fecha h_fec_lld;                 /* FECHA DE LLEGADA                         */
+hora  h_hra_lld;                 /* HORA DE LLEGADA                          */
+char  h_vlo_lld[6];              /* NUMERO DE VUELO DE LLEGADA               */
+fecha h_fec_reg;                 /* FECHA DE REGISTRO                        */
+hora  h_hra_reg;                 /* HORA DE REGISTRO                         */
+
+/* SALIDA -------------------------------------------------------------------*/
+
+fecha h_fec_sda;                 /* FECHA DE SALIDA                          */
+hora  h_hra_sda;                 /* HORA DE SALIDA                           */
+char  h_vlo_sda[6];              /* NUMERO DE VUELO DE SALIDA                */
+char  h_num_folio;               /* Numero de folios de extras               */
+
+/* OPERATIVOS ---------------------------------------------------------------*/
+
+CNT   h_num_per;                 /* NUMERO DE PERSONAS                       */
+CNT   h_num_adu;                 /* NUMERO DE ADULTOS                        */
+CNT   h_num_men;                 /* NUMERO DE MENORES                        */
+CNT   h_num_noc;                 /* NUMERO DE NOCHES                         */
+char  h_fol_mae[6];              /* FOLIO MAESTRO                            */
+CNT   h_tot_hab;                 /* NUMERO DE HABITACIONES                   */
+char  h_tpo_hab[6];              /* TIPO DE LAS HABITACIONES                 */
+char  h_num_hab[6];              /* NUMERO DE HABITACION                     */
+fecha h_fec_lim;                 /* FECHA LIMITE DE DEPOSITO                 */
+char  h_num_hab3[6];             /* 3ERA HAB BLOQUEADA                       */
+
+/* MERCADOTECNIA ------------------------------------------------------------*/
+
+char  h_tpo_hsp[4];              /* TIPO DE HUESPED                          */
+char  h_seg_mer[6];              /* SEGMENTO DE MERCADO                      */
+
+/* FOLIOS UTILIZADOS ------------------------------------------------------- */
+
+char h_fol_ind[6];                /* FOLIO INDIVIDUAL (EXTENSION )          */
+
+/* REGISTRO DE CAMBIOS A LA INFORMACION ------------------------------------*/
+
+char  h_res_usr[3];              /* USUARIO QUE EFECTUO LA RESERVACION       */
+char  h_rec_usr[3];              /* USUARIO QUE EFECTUO LA RECEPCION         */
+char  h_ult_cam_usr[3];          /* USUARIO ULTIMO CAMBIO                    */
+fecha h_ult_cam_fec;             /* FECHA DE ULTIMO CAMBIO AL REGISTRO       */
+hora  h_ult_cam_hra;             /* HORA  DE ULTIMO CAMBIO AL REGISTRO       */
+
+char h_tpo_ent;                  /* W- Walk-in  O- No-Show                   */
+char h_tpo_sal;                  /* I- Salida No Esperada                    */
+char h_comision;                 /* S- Si es Comisionable N-No es comision   */
+char h_num_conf[8];              /* NUMERO DE CONFIRMACION DE RESERVACION    */
+
+char h_num_cja;                 /* MENSAJE DE CAJA DEL ROOMING LIST         */
+char h_num_rec;                 /* MENSAJE DE RECE DEL ROOMING LIST         */
+char h_conf_cm;                 /* SI/NO VA A LA CUENTA MAESTRA EN  RLST    */
+char h_dia_plan[2];             /* DIA EN QUE CAMBIO EL PLAN (HOT840PLA)    */
+char reqhab[4];                 /* Requerimientos de habitacion, vista.etc. */
+char h_org_edo[4];              /* CODIGO DE ESTADO ORIGEN DE RESERVACION   */
+char h_org_pai[4];              /* CODIGO DE PAIS   ORIGEN DE RESERVACION   */
+char  h_can_res[2];             /* CANAL DE RESERVACION                     */
+char  h_programa[2];            /* PROG COMERCIAL AL QUE PERTENECE          */
+char  h_paquete[2];             /* TIPO DE PAQUETE                          */
+fecha h_ori_sda;                /*  FECHA ORIGINAL DE SALIDA                */
+char  h_tar_pro_1[15];          /* NUMERO DE TARJETA 1 DEL PROGRAMA         */
+char  h_tar_pro_2[15];          /* NUMERO DE TARJETA 2 DEL PROGRAMA         */
+char  h_tfa_adm;                /* TARIFA ADMINISTRABLE S/N                 */
+double h_p_comision;            /* PORCENTAJE DE COMISION                   */
+char h_pension[2];              /* Tipo de pension                          */
+char h_inicio[2];               /* Como inicia la pension (cena, desay, etc)*/
+char h_cont_paq;                /* Aplica 'C'ontrato 'P'aquete o 'T'arifa   */
+char h_ya_fact;                 /* S/N facturado */
+char h_status_rls;
+char h_reg_pr;
+double h_tfa_total;             /* Tarifa por toda la estancia              */
+char h_codigop_sin_uso[6];      /* Se graba en la posicion 0-Hotent.Ref y en la posicion 1-Hotent.Tarifa_forzada (MAYAN)*/
+char h_cupo;                    /* Numero de cupo 0 al 9                    */
+char h_cupo_sn;                 /* 'N'= no entra en el cupo de la agencia   */
+double h_tpo_cam;               /* Tipo de cambio con la que se facturo.    */
+char   h_cod_reserva[16];       /* Codigo de reserva externa  (HORNET etc)  */
+double h_tarifa_forzada;        /* Tarifa asignada manualmente              */
+char   h_promo2[3];             /* Numero de Promocion 2                     */
+char   h_socio2[8];             /* Clave de Socio 2                          */
+char   h_promo3[3];             /* Numero de Promocion 3                     */
+char   h_socio3[8];             /* Clave de Socio 3                          */
+char   h_tfa_abajo_yld;         /* Tarifa asignada abajo del minimo         */
+char   h_usr_forzo_yld[3];      /* Usuario que la forzo                     */
+char   h_con_tarj;              /* S/N paso por interface BANCARIA          */
+char   h_pif[8];                /* Numero de vendedor                       */ /*en Mayan se usa para forma de pago*/
+char   h_folio_adi[9];          /* folio para el TAXTUR en brasil           */
+char   h_ele_hab[3];            /* Numero de elemento de RLST               */
+char   h_gnr[12];               /* General Number Reservation               */
+char   h_cod_prom[6];           /* Codigo de Promocion (para Mayan)         */
+
+/* Datos para cuando cambian de habitacion y se desea facturar con original */
+char   h_tpo_hab_tfa[6];        /* si no esta en blanco aplica para renta */
+char   h_usr_c_hab[3];          /* usuario que cambio de tipo de hab */
+fecha  h_fec_cam_hab;           /* cuando se hizo el cambio */
+hora   h_hra_cam_hab;
+
+/* Juego alterno de datos para refacturar */
+char   h_cod_age_fac[9];
+char   h_tpo_pla_fac[6];
+CNT    h_tpo_tfa_fac;
+char   h_tpo_mon_fac[3];
+char   h_tpo_hab_fac[6];
+char   h_cupon_fac[16];
+char   h_num_fac[8];
+fecha  h_fec_fac;
+
+char   h_apellido_p[20];
+char   h_apellido_m[20];
+char   h_nombre[20];
+char   h_titulo[6];
+char   h_cod_age_2[9];
+char   h_cod_cia[9];
+CNT    h_num_men_g;
+CNT    h_num_infantes;
+char   h_tpo_contrib[2];      /* Tipo de Contribuyente */
+
+
+hora   h_hra_vlo_lld;         /* Hora de llegada del vuelo */
+hora   h_hra_vlo_sda;         /* Hora de salida del vuelo  */
+CNT    h_num_jun;             /* Numero de menores junior  */
+
+double h_tfa_impuestos;       /* Tarifa con Impuestos           */
+double h_tfa_agencia;         /* Tarifa de la Agencia           */
+double h_tfa_renta;           /* Tarifa para Renta              */
+double h_tfa_suplementos;     /* Tarifa para Sumplementos       */
+double h_tfa_extras;          /* Tarifa para Extras             */
+char   h_codigo_tar[3];       /* Codigo Seguridad Tarjeda Cred. */
+
+char   h_cod_promocion[20];   /* Codigo de promocion            */
+
+char   h_tpo_exonera[2];      /* Tipo de exoneraci n de impuesto*/
+char   h_idioma[2];           /* COdigo de idioma del huesped   */
+char   h_cf_char_1[30];       /* Custom Fields1 char */
+char   h_cf_char_2[30];       /* Custom Fields2 char */
+char   h_cf_char_3[30];       /* Custom Fields3 char */
+char   h_cf_char_4[30];       /* Custom Fields4 char */
+char   h_cf_char_5[30];       /* Custom Fields5 char */ // Se usa cuando el # de reserva externa es mayor a 16 y no cabe en h_cod_reserva
+char   h_cf_char_6[30];       /* Custom Fields6 char */ //En caso de Cendyn es el numero del profile en el guest history
+CNT    h_cf_int_1;            /* Custom Fields1 int  */
+CNT    h_cf_int_2;            /* Custom Fields2 int  */
+CNT    h_cf_int_3;            /* Custom Fields3 int  */
+CNT    h_cf_int_4;            /* Custom Fields4 int  */
+double h_cf_double_1;         /* Custom Fields1 double  */
+double h_cf_double_2;         /* Custom Fields2 double  */
+double h_cf_double_3;         /* Custom Fields3 double  */
+double h_cf_double_4;         /* Custom Fields4 double  */
+char   h_interfase_res[4];    /* Interfase de origen de la reservacion */
+char   h_mailing;             /* S/N Indica si el hu sped autoriza env o de promociones*/
+char   Num_cancelacion[10];   /* Numero de cancelacion asignado en obervaciones*/
+char   idSucursal[4];		  /* Indica el codigo de sucursal*/
+char   platicainf;		      /* Indica si tomo la platica informativa*/
+fecha  h_fec_nac;             /* fecha de nacimiento del Huesped */
+char   h_nip_igs[6];             /* Nip de 4 d gitos para autenticar login en iGS */
+char   h_tar_pro_3[30];       /* NUMERO DE TARJETA DEL PROGRAMA PAYBACK  */
+char   profileid [40];		  /*Profile id*/
+/// campos nuevos para V10
+double h_tpo_cam_rta;         /* tipo de cambio de rentas                */
+/////////// DATOS HAB PARA APARTADO 
+char   h_apa_tpo_hab[6];
+char   h_apa_num_hab[6];
+fecha  h_apa_fec_ini;  
+char   h_tipo_bra[6];            /* Cat logo de tipo de brazalete               */
+char   h_brazalete[10];          /* numero de brazalete                        */
+char   h_status_pago[10];     /* Estatus del pago de la reservacion      */
+char   espacios_oracle[10];
+} HOTHSP;
+

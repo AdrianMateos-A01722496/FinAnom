@@ -1,0 +1,72 @@
+/*-------------------------------------------------------------------------*/
+/*      NOMBRE: HOTSCE.CPY                                               */
+/* DESCRIPCION: Catalogo de Solicitudes para Control de Entregas           */
+/*       LLAVE: CODIGO: codigo                                             */
+/*       FECHA: 2008/01/08                                                 */
+/*-------------------------------------------------------------------------*/
+
+typedef struct {
+char    codigo[6];            /* Codigo de la Solicitud                    */
+char    descripcion[100];     /* Descripcion de Salon o instalacion        */
+
+char    familia[6];           /* Familia de la Solicitud                   */
+char    sub_familia[6];       /* Subfamilia de la Solicitud                */
+
+char    tipo_seguimiento;     /* Tipo de Seguimiento                       */
+                              /*   M -> Mensaje                            */
+                              /*   A -> Aviso PopUp                        */
+                              /*   S -> Seguimiento Obligatorio            */
+                              /*   O -> Seguimiento Opcional               */
+
+char    activacion[2];        /* Activacion de la Solicitud                */
+                              /*   AS -> Alta de la Solicitud              */
+                              /*   FE -> Fecha                             */
+                              /*   FH -> Fecha y Hora                      */
+                              /*   PR -> Pre-Registro                      */
+                              /*   II -> Inicio de CheckIn                 */
+                              /*   TI -> Termino de CheckIn                */
+                              /*   IO -> Inicio de CheckOut                */
+                              /*   TO -> Termino de CheckOut               */
+
+char    captura_fecha_hora;   /* Permite capturar Fecha y Hora             */
+CNT     cantidad;             /* Cantidad de Articulos a Entregar          */
+
+hora    tiempo_1;             /* Tiempo 1er Alerta HH:MM:SS                */
+char    alerta_1[6];          /* Codigo de Alerta para 1er Alerta          */
+char    respon_1[6];          /* Resposanble para 1er Alerta               */
+
+hora    tiempo_2;             /* Tiempo 2da Alerta HH:MM:SS                */
+char    alerta_2[6];          /* Codigo de Alerta para 2da Alerta          */
+char    respon_2[6];          /* Resposanble para 2da Alerta               */
+
+hora    tiempo_3;             /* Tiempo 3er Alerta HH:MM:SS                */
+char    alerta_3[6];          /* Codigo de Alerta para 3er Alerta          */
+char    respon_3[6];          /* Resposanble para 3er Alerta               */
+
+hora    tiempo_limite;        /* Tiempo Limite HH:MM:SS                    */
+char    alerta_limite[6];     /* Codigo de Alerta para Tiempo Limite       */
+char    respon_limite[6];     /* Resposanble para Tiempo Limite            */
+
+fecha   fec_alta;             /* Fecha de Alta de la Solicitud             */
+hora    hra_alta;             /* Hora de Alta de la Solicitud              */
+char    usr_alta[3];          /* Usuario que dio de Alta la Solicitud      */
+
+fecha   fec_modi;             /* Fecha de Ultima Modificacion              */
+hora    hra_modi;             /* Hora de Ultima Modificacion               */
+char    usr_modi[3];          /* Ultimo Usuario que Modifico la Solicitud  */
+
+char    mostrar_hsp;          /* Indica si muestra en dispositivos moviles */
+char    visualiza_a_solicitud;   /* Se visualiza en alta de solicitudes    */
+
+char    res_inter[20];        /*Codigo del responsable en interfases*/
+char    cat_inter[20];        /*Codigo de categoria en interfases*/
+char    cod_inter[20];        /*Codigo de la solicitud en la interfase*/
+char    ser_inter[20];        /*Codigo de servicio en la interfase*/
+char    accesorio[1];         /*Accesorio*/
+							  /*   S -> SI                                */
+                              /*   N -> NO                                */
+char 	tipo_solicitud[6];     /* Tipo de la solicitud                     */
+char    cod_accion[6];	       /*Codigo de Accion */
+
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTSCE;

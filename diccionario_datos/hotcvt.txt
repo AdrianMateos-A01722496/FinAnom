@@ -1,0 +1,16 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCVT.CPY                                               */
+/* DESCRIPCION: Guarda los Tipos de Cambio Diarios de todas las Monedas    */ 
+/*              con respecto al Peso.                                      */
+/*       LLAVE: KEY = v_cve_mon + v_fec                                    */
+/*       FECHA: 2000/08/05                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct {
+char   v_cve_mon[3];               /* CLAVE DE MONEDA                      */
+fecha  v_fec;                      /* FECHA DE COTIZACION                  */
+char   alinea[3];
+double v_tpo_dia;                  /* TIPO DE CAMBIO DEL DIA               */
+char   espacios_oracle[10];        //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCVT;

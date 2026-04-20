@@ -1,0 +1,41 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCAG.CPY                                               */
+/* DESCRIPCION: Archivo de Catalogos Generales                             */
+/*       LLAVE: KEY = tipo + codigo                                        */
+/*       FECHA: 2000/11/28                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct {
+ireg    ibuff;
+
+char   tipo[1];        /* TIPO DE CATALOGO                */
+char   codigo[6];      /* CLAVE DEL CATALOGO              */
+char   descrip[50];    /* DESCRIPCION                     */
+char   for_factura[2]; /* NUMERO DE FORMATO POR DEFAULT   */
+double comision;       /* porcentaje de comision          */
+
+/* las siguientes son caracteristicas de los segmentos 6 cars */
+
+char   agencia[1];     /* lleva agencia S/N/X       */
+char   canal[1];       /* lleva canal S/N/X         */
+char   programa[1];    /* lleva programa S/N/X      */
+char   paquete[1];     /* lleva canal S/N/X         */
+char   grupo[1];       /* lleva grupo S/N/X         */
+char   reservacion[1]; /* es valido en reserva  S/N/X */
+char   tarifa0[1];     /* lleva tarifa S/N/X                               */
+char   tipo_tarifa[1]; /* que tipo tarifa #         */
+char   recepcion[1];   /* es valido en recepcion  S/N/X */
+
+char   otros[7]; 
+CNT    millas_kms;
+char   cod_renta[1];   /* es valido en recepcion  S/N/X */
+char   percep_iva;         /* Percepcion Iva */
+char   percep_ing_bruto;   /* Percepcion Ingreso Bruto */
+double iva_no_inscritos;   /* Tasa de Iva No Inscritos */
+char   claveProdServ[8];   /*clave de produccion o servicio cfdi 3.3.*/
+char   claveUnidad[3];     /*Clave de unidad de medida cfdi 3.3.*/
+char   amaLlaves;   /*S o N*/
+char   fin[30];        /* AREA NO USADA                   */
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCAG;

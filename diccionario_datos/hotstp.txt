@@ -1,0 +1,19 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTSTP.CPY                                               */
+/* DESCRIPCION: Status Primario del Estado de Cuartos                      */
+/*       LLAVE: KEY = o_cod                                                */
+/*       FECHA: 2000/08/06                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+ireg  ibuff;
+char  o_cod[4];                     /* CODIGO DE ESTADO DE CUARTO            */
+char  o_des[29];                    /* DESCRIPCION                           */
+char  o_cod_corto;                  /* Letra que representa codigo corto     */
+char  o_inr;                        /* A/R AMA DE LLAVES O RECEPCION         */
+char  o_des_corto[4];               /* Descripcion corta                     */
+char  cod_inter[20];                /* Codigo Interfase                      */
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTSTP;

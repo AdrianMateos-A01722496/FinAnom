@@ -1,0 +1,64 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTVTA.CPY                                               */
+/* DESCRIPCION: Acumular Estadisticas de Venta por agencia y contrato      */
+/*      LLAVES: KEY = fec_vta + agencia + tpo_hab + contrato (UNICA)       */
+/*                    agencia + fec_vta                                    */
+/*                    fec_vta + contrato                                   */
+/*                    contrato+ fec_vta                                    */
+/*       FECHA: 2008/05/28                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+fecha  fec_vta;                      /* FECHA DE VENTA  AA-MM-DD        */
+char   agencia[9];                   /* SEGMENTO DE MERCADO             */
+char   tpo_hab[6];                   /* TIPO DE HABITACION              */
+char   contrato[6];                  /* SEGMENTO ALTERNO                */
+char   segmento[6];                  /* SEGMENTO DE MERCADO             */
+char   seg_mer[3];                   /* SEGMENTO DE MERCADO             */
+char   seg_alt[3];                   /* SEGMENTO ALTERNO                */
+char   pais_canales[12];             /* PAIS+EDO+CANAL+PROGRAMA+PAQUETE */
+char   pais_edo[6];                  /* PAIS + EDO                      */
+char   pais[3];                      /* PAIS                            */
+char   edo[3];                       /* ESTADO                          */
+char   can_pro_paq[6];               /* CANAL+PROGRAMA+PAQUETE          */
+char   canal[2];                     /* CANAL                           */
+char   programa[2];                  /* PROGRAMA                        */
+char   paquete[2];                   /* PAQUETE                         */
+
+
+int    cto_noc;                      /* HABITACIONES VENDIDAS POR DIA   */
+int    num_per;                      /* NUMERO DE PERSONAS              */
+int    num_adu;                      /* NUMERO DE ADULTOS               */
+int    num_men;                      /* NUMERO DE MENORES PAGANDO       */
+int    num_meg;                      /* NUMERO DE MENORES GRATIS        */
+int    num_inf;                      /* NUMERO DE INFANTES              */
+int    num_jun;                      /* NUMERO DE JUNIORS               */                                     
+int    cto_lld;                      /* CTOS ENTRANDO EN EL DIA         */
+int    cto_sda;                      /* CUARTOS SALIDA                  */
+
+int    cto_noc_res;                  /* HABITACIONES VENDIDAS CON RESERVA */
+double cto_ing;                      /* INGRESOS POR HABITACION         */
+double otr_ing;                      /* OTROS INGRESOS */
+double cto_ing_res;                  /* INGRESOS POR HABITACION CON RESERVA */
+int    cto_age;                      /* CUARTOS POR AGENCIA             */
+int    cto_est;                      /* CUARTOS ESTIMADOS               */
+double ing_age;                      /* INGRESO PASADOS POR AGENCIA*/
+double ing_est;                      /* INGRESOS ESTIMADOS         */  
+double pres_ingr_hab;
+double pres_tot_noch;
+double cto_ing_dls;                  /* cto_ing pero en DLS   EGS 20150528 */
+int    cto_ind;                      /* cuartos individuales vgrg 20171024*/
+int    cto_gpo;                      /* cuartos de grupos    vgrg 20171024*/
+int    cto_llg;                      /* cuartos llegadas garantizadas vgrg 20171024*/
+int    cto_llng;                     /* cuartos llegadas no garantizadas    vgrg 20171024*/
+
+double ing_extras; 				     /*KAMR 20180430*/
+double ing_impuestos; 			   	 /*KAMR 20180430*/
+double ing_base; 					 /*KAMR 20180430*/
+double ing_exento; 					 /*KAMR 20180430*/
+double cto_ing_neto;
+double cto_ing_bruto;
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+}  HOTVTA;

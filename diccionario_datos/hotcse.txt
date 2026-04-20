@@ -1,0 +1,15 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCSE.CPY                                               */
+/* DESCRIPCION: Catalogo de Segmentos.                                     */
+/*      LLAVES: KEY = seg_mer                                              */
+/*       FECHA: 2004/12/14                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+char  seg_mer[3];          /* Clave de segment mercado                          */
+char  descrip[30];         /* Descripcion                                */
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCSE;
+

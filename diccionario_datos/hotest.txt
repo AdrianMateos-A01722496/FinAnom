@@ -1,0 +1,41 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTEST.CPY                                               */
+/* DESCRIPCION: Archivo de Estadisticas.                                   */
+/*      LLAVES: TPOHAB_FECHA = tpo_hab + fec                               */
+/*              FECHA_TPOHAB = fec + tpo_hab                               */
+/*       FECHA: 2000/11/15                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+ireg    ibuff;
+char    tpo_hab[6];          
+fecha   fec;
+
+char    alinea1;
+CNT     cto_tot;                 /* TOTAL DE CUARTOS EN EL HOTEL           */
+CNT     cto_fs;                  /* FUERA DE SERVICIO /OCUP. OTRO  HOTEL   */
+CNT     cto_va_l;                /* VACIOS LIMPIOS   / NETOS OTRO HOTEL    */
+CNT     cto_va_s;                /* CUARTOS VACIOS SUCIOS                  */
+CNT     cto_cancel;              /* CUARTOS CANCELADOS DEL DIA             */
+CNT     cto_no_show;             /* CUARTOS NO SHOW COBRABLES              */
+CNT     cto_no_lleg;             /* CUARTOS NO SHOW NO COBRABLES           */
+CNT     cto_entrada;             /* CUARTOS QUE ENTRARON HOY               */
+CNT     cto_salida;              /* CUARTOS QUE SALIERON HOY               */
+CNT     cto_sal_ant;             /* CUARTOS CON SALIDAS ANTICIPADAS        */
+CNT     cto_sal_pro;             /* CUARTOS CON SALIDAS PROLONGADAS        */
+CNT     cto_walk_inn;            /* CUARTOS CON ENTRADAS EN WALK INN       */
+char    tipo_reg;                /* 0.- por tipo de habitacion del hotel   */
+                                 /* 1.- Datos de otros hoteles             */
+char    alinea[3];
+double  tarifa_prom;             /* TARIFA PROMEDIO DE OTROS HOTELES       */
+char    i_buf;                   /* AREA NO USADA                          */
+char    alinea2;
+CNT     cto_ind;                 /* CUARTOS INDIVIDUALES                   */
+CNT     cto_dob;                 /* CUARTOS DOBLES                         */
+CNT     cto_tri;                 /* CUARTOS TRIPLES                        */
+CNT     cto_cua;                 /* CUARTOS CUADRUPLES                     */
+char    buffer[696];             /* AREA NO USADA           953            */
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTEST;

@@ -1,0 +1,24 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTFBL.CPY                                               */
+/* DESCRIPCION: Archivo que mantiene Fecha de Bloqueo de las Habitaciones  */
+/*              Dia por Dia                                                */
+/*      LLAVES: NUM_HAB = num_hab + fecha_blo                              */
+/*              TPO_HAB = tpo_hab + fecha_blo                              */
+/*                FECHA = fecha_blo                                        */
+/*              NUM_TPO = num_hab + tpo_hab + fecha_ini_blo                */
+/*       FECHA: 2000/08/05                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct {
+char  cod_blo[2];                  /* CODIGO DE BLOQUEO                */
+          		           /*   01 - RECEPCION                 */
+				   /*   02 - AMA DE LLAVES             */
+				   /*   03 - RESERVACIONES             */
+char   buf[3];                     /*   AREA NO USADA                      */
+char   num_hab[6];                 /*   NUMERO DE HABITACION               */
+char   tpo_hab[6];                 /*   TIPO DE HABITACION                 */
+fecha fecha_ini_blo;               /*   FECHA INICIO DE BLOQUEO            */
+fecha fecha_blo;                   /*   FECHA BLOQUEADA                    */
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTFBL;

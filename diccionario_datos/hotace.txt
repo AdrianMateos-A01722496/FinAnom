@@ -1,0 +1,23 @@
+/*-------------------------------------------------------------------------*/
+/*      NOMBRE: HOTACE.CPY                                               */
+/* DESCRIPCION: Catalogo de Avisos y Alertas para Control de Entregas      */
+/*       LLAVE: CODIGO: codigo                                             */
+/*       FECHA: 2008/01/10                                                 */
+/*-------------------------------------------------------------------------*/
+
+typedef struct {
+char    codigo[6];               /* Codigo de la Alerta                    */
+char    descripcion[255];        /* Descripcion de la Alerta               */
+char    tipo[2];                 /* Tipo de Alerta                         */
+                                 /*   AP -> Aviso en Pantalla              */
+                                 /*   CE -> Correo Electronico             */
+
+fecha   fec_alta;                /* Fecha de Alta del Colaborador          */
+hora    hra_alta;                /* Hora de Alta del Colaborador           */
+char    usr_alta[3];             /* Usuario que dio de Alta el Colaborador */
+
+fecha   fec_modi;                /* Fecha de Ultima Modificacion           */
+hora    hra_modi;                /* Hora de Ultima Modificacion            */
+char    usr_modi[3];             /* Ultimo Usuario que Modifico            */
+char  espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTACE;

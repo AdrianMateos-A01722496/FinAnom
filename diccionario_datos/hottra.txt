@@ -1,0 +1,84 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTTRA.CPY                                               */
+/* DESCRIPCION: Archivo de Transacciones                                   */
+/*      LLAVES: FOLIO_FECHA = t_folio + t_folio_ext + t_fecha +            */
+/*                            t_carabo + t_codigo + t_referencia           */
+/*                FECHA_TRA = t_fecha + t_transaccion                      */
+/*       FECHA: 2000/08/23                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+ireg   ibuff;                  /* INICIO DE REGISTRO                       */
+char   t_folio[6];             /* NUMERO DE FOLIO                          */
+char   t_folio_ext[3];         /* Extras del folio                         */
+fecha  t_fecha;                /* FECHA DE LA TRANSACCION                  */
+
+
+char   t_carabo;               /* 0-CARGO | 1-ABONO                        */
+char   t_codigo[6];            /* CODIGO DE TRANSACCION                    */
+char   t_referencia[6];        /* NUMERO DE REFERENCIA (CHEQUE)            */
+
+/* ----------------------------------------------------------------------- */
+char   t_transaccion[6];       /* NUMERO DE TRANSACCION DEL DIA           */
+char   t_cuarto[6];            /* NUMERO DE CUARTO                        */
+char   t_num_adu;              /* NUMERO DE ADULTOS                       */
+char   t_num_men;              /* NUMERO DE MENORES                       */
+char   t_inc_tfa;              /* S/N ESTA INCLUIDO EN TARIFA             */
+double t_monto;                /* MONTO DE LA TRANSACCION                 */
+double t_impuesto;             /* IMPUESTO                                */
+double t_propina;              /* PROPINA                                 */
+char   t_observaciones[30];    /* OBSERVACIONES                           */
+/* -----------------------------------------------------------------------*/
+char   t_tra_cancelada;        /* 0 = TRANSACCION ACTIVA
+                                  1 = TRANSACCION CANCELADA               */
+/* -----------------------------------------------------------------------*/
+char   t_centro_consumo[2];    /* CAJA DEPARTAMENTAL DE ORIGEN            */
+                               /* 00      = CAJA DE RECEPCION 
+                                  01 a 79 = CENTROS DE CONSUMO
+                                  98      = TELEFONOS
+                                  99      = CONMUTADOR TELEFONICO
+                               */
+char   t_tra_hra[2];           /* HORA EN QUE SE EFECTUO LA TRANSACCION   */
+char   t_tra_mto[2];
+char   t_can_hra[2];           /* HORA EN QUE SE EFECTUO LA CANCELACION   */
+char   t_can_mto[2];
+/* -----------------------------------------------------------------------*/
+char   t_usuario[3];           /* CLAVE COMPACTA DE USUARIO QUE DIO ALTA  */
+char   t_usuario_mod[3];       /* CLAVE DE USUARIO ULTIMA MODIFICACION    */
+char   t_can_mes[2];           /* MES DE CANCELACION */
+char   t_can_dia[2];           /* DIA DE CANCELACION */
+char   t_cve_res[15];          /* CLAVE DE RESERVACION DE RENHAB */
+CNT    t_noches;               /* NOCHES DE ESTANCIA EN PAQUETES          */
+char   t_num_per;
+char   t_ya_facturada;         /* S/N esta facturada desde los puntos de venta*/
+
+char   t_renta;
+char   t_buffer[1];
+double t_impuesto2;            /* SEGUNDO IMPUESTO                        */
+char   t_tipo_trans;
+char   t_genero_split;         /* transaccion marcada como split */
+char   t_folio_split[9];       /* folio original del split       */
+char   t_usr_split[3];         /* usuarios que genero el split   */
+char   t_numctapago[20];
+char   t_claveorigen[20];		/* clave de sistema que originó la transaccion*/
+
+// Campos nuevos Agregados el 20190329 por EGS para V10 Solatis 83+
+char   codigoMoneda[3];
+double totalMonedaExtranjera;
+double tipoCambio;
+double impuestoMonedaExtranjera;
+double impuesto2MonedaExtranjera;
+double propinaMonedaExtranjera;
+char   t_ref_original[6];       // Referencia Original de la transaccion 
+
+char   t_folio_origen[9];      /* Folio original de la transaccion */
+char   t_tra_origen[6];        /* Codigo de la transaccion origen */
+char   t_ref_origen[6];        /* Codigo de la referencia origen */
+
+char   t_autorizacion[30];     /* Codigo de autorización */
+
+char   buffer[31];
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTTRA;

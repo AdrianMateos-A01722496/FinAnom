@@ -1,0 +1,17 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTEDO.CPY                                               */
+/* DESCRIPCION: Catalogo de Estados y Paises                               */
+/*       LLAVE: KEY = e_cod                                                */
+/*       FECHA: 2000/08/05                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+char  e_cod[6];                     /* CODIGO DE ESTADO (O PAIS)             */
+char  e_des[30];                    /* DESCRIPCION                           */
+char  e_pai[3];                     /* PAIS DE ESTE ESTADO                   */
+char  e_idioma[3];                  /* IDIOMA PARA VOICE MAIL */
+char  e_buf[2];
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTEDO;

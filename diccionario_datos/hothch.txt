@@ -1,0 +1,63 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTHCH.CPY                                               */
+/* DESCRIPCION: Almacenar toda informacion de los Huespedes que comparten  */
+/*              Habitacion referente a su Reservacion, Registro y Folio    */
+/*      LLAVES: RESERVACION = h_res_cve                                    */
+/*                   NOMBRE = h_nom                                        */
+/*                  FEC_LLD = h_fec_lld                                    */
+/*                  FEC_SDA = h_fec_sda                                    */
+/*       FECHA: 2000/08/06                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+ireg ibuff;                       /* inicio de registro                      */
+/* MANEJO DEL REGISTRO ------------------------------------------------------*/
+struct                           /* CLAVE DE LA RESERVACION                  */
+   {
+   char tpo;                     /* (G)RUPO O (I)NDIVIDUAL                   */
+   char num[8];                  /* NUMERO DE RESERVACION                    */
+   char mbo[6];                  /* SI ES GRUPO NUMERO DE MIEMBRO (0 P/IND)  */
+   } h_res_cve;
+
+nomb  h_nom;                     /* NOMBRE DEL HUESPED                       */
+char  h_status[2];
+fecha h_fec_lld;                 /* FECHA DE LLEGADA                         */
+fecha h_fec_sda;                 /* FECHA DE SALIDA                          */
+
+char   h_apellido_p[20];
+char   h_apellido_m[20];
+char   h_nombre[20];
+char   h_titulo[6];
+char   h_pasaporte[16];           
+char   h_pai_nac[4];        
+char   h_correo_e[50];      
+char   h_codigo_paquete[6];      /* codigo de paquete para Park Royal cobro especial PAX*/
+char   h_AoMoJ;                  /* A/N/J/I/P Adulto o Menor o Junior o Infante o MenorGratis          */
+int    h_id;                     /* autoincrementable                          */
+char   h_tipo_bra[6];            /* Cat logo de tipo de brazalete               */
+char   h_brazalete[10];          /* numero de brazalete                        */
+char   h_promo[3];               /* promocion guesthistory                     */
+char   h_num_vip[8];             /* NUMERO DE HUESPED ASIGNADO GuestHistory    */
+
+///// campos nuevos para V10
+char   h_es_gratis; /* S/N */
+CNT    h_edad;        
+char   h_pax_extra;   /* S/N */
+char   h_codigo_extra[6]; /* codigo de UPSELL(PE) */
+double h_monto;
+char   h_moneda[3];   /* codigo de moneda */
+// nuevos campos 20230810
+
+char   hch_tpo_hsp[3];
+fecha  hch_fec_nac;      //fecha de nacimiento
+
+char   datos_fac[150];  //este campo no va en la tabla pero se usa para armar los datos de facturacion de los comparten
+char   datos_future[256]; // datos futuros - [0]Tipo de documento de identidad(1 caracter)
+char   hch_folio[9];       //relacion con el hotfol
+
+
+char   filler[57];                 /* area no usada                            */
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTHCH;

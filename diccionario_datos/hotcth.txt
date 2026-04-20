@@ -1,0 +1,25 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCTH.CPY                                               */
+/* DESCRIPCION: Tipos de Habitaciones.                                     */
+/*      LLAVES: KEY = tpo_hab                                              */
+/*       FECHA: 2003/11/12                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+ireg  ibuff;               /* INICIO DE REGISTRO                         */
+char  tpo_hab[6];          /* Tipo de Habitacion                         */
+char  descrip[30];         /* Descripcion                                */
+char  edo_csa;             /* (S/N) se Toma en Cuenta en Estado Casa     */
+char  tpo_comp;            /* (S/N) es compuesta                         */
+char  nivel;               /* Nivel de la Habitacion 1,2,3,4,5  (no se usa) */
+char  cupo;                /* Cupo Teorico de Habitacion 1=Ind 2=Dob etc */
+char  clase[3];            /* Clasificacion de Habitaciones              */
+CNT   fac_ama;             /* Factor Ama de Llaves                       */
+CNT   fac;                 /* Factor de Conversion para cuartos noche    */
+CNT   hab_dis;             /* Numero de Habitaciones de este tipo        */
+char  tipo;                 /* Sirve para indicar si este tipo de habitacion sera vendido en internet*/
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCTH;
+

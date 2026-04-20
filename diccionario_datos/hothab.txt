@@ -1,0 +1,54 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTHAB.CPY                                               */
+/* DESCRIPCION: Almacenar la informacion referente a las Habitaciones del  */
+/*              Hotel.                                                     */
+/*      LLAVES:             KEY = c_tpo_hab + c_num_hab                    */
+/*              REC_AMA_TPO_NUM = c_sta_rec + c_sta_ama + c_tpo_hab +      */
+/*                                c_edif + c_piso + c_num_hab              */
+/*                          STA = c_sta_rec + c_sta_ama                    */
+/*                      HAB_TPO = c_num_hab + c_tpo_hab                    */
+/*       FECHA: 2000/08/06                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+ireg    ibuff;                   /* INICIO DE REGISTRO                       */
+char    c_num_hab[6];            /* NUMERO DE HABITACION                     */
+char    c_tpo_hab[6];            /* TIPO DE HABITACION                       */
+char    c_sta_rec[4];            /* STATUS DE RECEPCION                      */
+char    c_sta_ama[4];            /* STATUS DE AMA DE LLAVES                  */
+char    c_tpo_cma[15];           /* TIPO DE CAMA(S)                          */
+char    c_vit[15];               /* VISTA                                    */
+char    c_gen[30];               /* CARACTERISTICAS GRALES DE LA HABITACION  */
+char    c_hab_cmn[6];            /* HABITACION CON QUE SE COMUNICA           */
+char    c_tpo;                   /* TIPO DE LA RESERVACION                   */
+char    c_mbo[5];                /* MIEMBRO DE LA RESERVACION                */
+
+
+/* INFORMACION PARA FUERA DE SERVICIO ---------------------------------------*/
+
+char    c_fue_ser[4];            /* CODIGO FUERA DE SERVICIO                 */
+fecha   c_fec_ini_blo;           /* FECHA DE INICIO DEL BLOQUEO              */
+fecha   c_fec_fin_blo;           /* FECHA EN QUE TERMINA EL BLOQUEO          */
+char    c_cam_bla;               /* REQUIERE CAMBIO DE BLANCOS               */
+char    c_num_per;               /* NUM DE PERSONAS REPORTADAS POR AMA       */
+char    c_cod_corto;             /*                                          */
+char    c_des_cta[4];            /* DESCRIPCION CORTA                        */
+char    c_edif[3];               /* EDIFICIO EN DONDE SE ENCUENTRA LA HAB.   */
+char    c_secc[3];               /* SECCION POR SUPERVISORA                  */
+char    c_piso[3];               /* PISO                                     */
+char    c_num[6];                /* NUMERO DE LA RESERVACION                 */
+char    c_cve_res[15];           /* CLAVE DE RESERVACION                    */
+fecha   c_fec_ult_ocu;           /* FECHA DE ULTIMA OCUPACION               */
+fecha   c_fec_cam_col;           /* FECHA DE CAMBIO DE COLCHON             */
+CNT     c_num_noc;               /* NOCHES OCUPADAS                        */
+CNT     c_num_noc_col;           /* NOCHES OCUPADAS DESDE CAMBIO DE COLCHON*/
+CNT     c_factor_ama;            /* VALOR EN UNIDADES PARA CAMARISTA       */
+fecha   c_fec_cam_bla;           /* FECHA DE CAMBIO DE BLANCOS             */
+char    c_cama_extra;            /* INDICA SI TIENE CAMA EXTRA             */
+char    c_cuna;                  /* INDICA SI TIENE CUNA                   */
+char    espacios_oracle[10];
+
+} HOTHAB;
+

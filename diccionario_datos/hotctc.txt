@@ -1,0 +1,16 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCTC.CPY                                               */
+/* DESCRIPCION: Catalogo de Tipos de Clientes o Huespedes.                 */
+/*      LLAVES: KEY = tpo_hsp                                              */
+/*       FECHA: 2004/12/13                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+char  tpo_hsp[4];          /* Tipo de Huesped                            */
+char  descrip[30];         /* Descripcion                                */
+char  dia_cam;             /* Dias de Cambio de Blancos                  */
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCTC;
+

@@ -1,0 +1,112 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCLI.CPY                                               */
+/* DESCRIPCION: Archivo de Clientes (Agencias)                             */
+/*      LLAVES:	        KEY = c_cve_cxc                                    */
+/*                  CIA_CVE = c_cia + c_cve_cxc                            */
+/*              CIA_ZON_CVE = c_cia + c_zon + c_cve_cxc                    */
+/*                   NOMBRE = c_nombre + c_zon + c_cve_cxc                 */
+/*                     TEL1 = c_telefono + c_zon + c_cve_cxc               */
+/*                     TEL2 = c_telefono2 + c_zon + c_cve_cxc              */
+/*               CD_EDO_PAI = c_ciudad + c_estado                          */
+/*               PAI_EDO_CD = c_pais + c_estado + c_ciudad                 */
+/*                  CREDITO = c_tpo_cli                                    */
+/*       FECHA: 2000/08/22                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+ireg   ibuff;
+char   c_cia[3];                        /* Compania                      */
+char   c_cve_cxc[9];                    /* Clave del cliente             */
+char   c_zon[3];                        /* Zona                          */
+char   c_cve_cob[6];                    /* Clave de cobrador             */
+char   c_rep[4];                        /* Ruta de reparto               */
+char   c_zon_ven[3];                    /* Zona del vendedor             */
+char   c_cve_ven[6];                    /* Clave del vendedor            */
+char   c_nombre[300];                   /* Nombre del cliente            */
+char   c_ciudad[60];                    /* Ciudad                        */
+char   c_estado[6];                     /* Estado                        */
+char   c_pais[6];                       /* Pais                          */
+char   c_ent_dir1[60];                  /* Direccion 1 de Entrega comun  */
+char   c_ent_dir2[60];                  /* Direccion 2 de Entrega comun  */
+char   c_ent_cd[60];                    /* Ciudad   Entrega comun        */
+char   c_ent_est[3];                    /* Estado   Entrega comun        */
+char   c_ent_pais[3];                   /* Pais      Entrega comun       */
+char   c_ent_pos[20];                    /* Codigo postal  Entrega comun  */
+char   c_telefax[13];                   /* Telex                         */
+char   c_dia_rev[2][2];                 /* Dias a revision               */
+char   c_hr_rev[2][10];                 /* Horario de revision           */
+char   c_dia_pag[2][2];                 /* Dias de pago                  */
+char   c_hr_pag[2][10];                 /* Horario de pago               */
+char   c_moneda[3];                     /* Codigo de moneda              */
+char   c_con_pto[3][20];                /* Contacto puesto               */
+char   c_con_tel[3][13];                /* Contacto telefono             */
+char   c_seg_mer[6];                    /* Segmento del mercado          */
+char   c_con_pag[5];                    /* Clave condicion de pago       */
+char   c_auxiliar[20];                  /* Cuenta contable del cte.      */
+char   tpo_cli[2];                      /* Tipo de cliente               */
+char   c_for_pgo[6];                    /* Forma de Pago                 */
+char   c_env_nom[30];                   /* Enviar a:                     */
+char   c_tpo_des;                       /* Tipo de descuento             */
+char   c_tipo_dscto;
+char   c_cre_aut;
+char   c_conden;                        /* Condensa pedido o desglosado  */
+char   c_sal_ven;                       /* S=vencido N = No              */
+fecha  c_mod_fec;                         /* Fecha de ultima modificacion  */
+char   c_mod_usr[3];                    /* Usuario que hizo ultima modif.*/
+fecha  c_fec_ult_vta;                     /* Ultima venta                  */
+fecha  c_fec_ult_pag;                     /* Ultima Pago                   */
+CNT    c_precio;                        /* Precio (numero 1, 2 .. etc)   */
+CNT    c_imp;                           /* Impuesto 1, 2, 3              */
+CNT    c_dias_credito;                  /* DIAS DE CREDITO               */
+CNT    c_dias_pto_pago;
+CNT    c_num_pag;                       /* Numero de pagos               */
+double c_porc_dscto;
+double c_des_fac;                       /* Descuento por Factura         */
+double c_saldo;                         /* Saldo del cliente             */
+double c_limite_credito;                /* Limite de credito             */
+double c_moratorios;
+double c_desc_pto_pago;
+double c_t_cargos;                      /* Total de Cargos               */
+double c_t_abonos;                      /* Total de Abonos               */
+char   c_zon_cob[3];                    /* Zona                          */
+char   c_emb_ruta[4];                   /* Ruta de embarque              */
+char   c_flag_msg;                      /* Acepta mensajes en Estado Cta S/N */
+char   c_dia_ent1;                    /* DIAS DE ENTREGA AL CLIENTE      */
+char   c_dia_ent2;                    /*  1 -LUNES                       */
+char   c_dia_ent3;                    /*  2 -MARTES                      */
+char   c_dia_ent4;                    /*  3 -MIERCOLES                   */
+char   c_dia_ent5;                    /*  4 -JUEVES                      */
+char   c_dia_ent6;                    /*  5 -VIERNES                     */
+char   c_dia_ent7;                    /*  6 -SABADO 
+                                        7 -DOMINGO                     */
+char   c_orden_ent[8];                /* Orden de Entrega                */
+char   c_cve_cont[13];                /* auxiliar contable               */
+fecha  c_fecha_corte;                 /* fecha del corte del mes           */
+
+double c_comision;                    /* comision                        */
+char   c_tpo_cli[2];                  /* tipo de cliente para victor       */
+char   c_ultimo_folio[4];           /* Ultimo folio                      */
+char   c_cupon;                     /* S/N                               */
+char   c_activo;                    /* S/N                               */
+char   c_cve_ext[9];                /* Clave externa de CXC              */
+char   c_email[50];                 /* E-Mail de cliente                 */
+char   c_estatal[20];               /* Inscripcion Estatal               */
+fecha  c_fec_alt;                   /* Fecha de alta                     */
+fecha  c_fec_mod_cred;              /* Fecha modificacion del credito    */
+char   c_banco[4];                  /* Banco para pago de comisiones     */
+char   c_plaza[6];
+char   c_sucursal[6];
+char   c_referencia[8];
+char   c_cuenta[16];                /* cuenta bancaria para comisiones   */
+
+char   c_tpo_contrib[2];            /* Tipo de contribuyente             */
+char   c_sit_ing_brutos[2];         /* Situacion de Ingresos Brutos            */
+char   c_num_ing_brutos[16];        /* Numero de inscripcion de ingresos Brutos*/  
+
+char   c_clasificacion[10];         /* Clasificacion de clientes ( posadas ) */
+char   c_tipo_cliente[10];          /* Tipo de cliente ( posadas ) */
+char   c_PreguntaExtra;
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCLI;

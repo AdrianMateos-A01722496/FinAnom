@@ -1,0 +1,16 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCMN.CPY                                               */
+/* DESCRIPCION: Catalogo de Monedas.                                       */
+/*      LLAVES: KEY = cve_mon                                              */
+/*       FECHA: 2004/12/13                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+char  cve_mon[3];          /* Clave de Moneda                            */
+char  descrip[30];         /* Descripcion                                */
+char  modulo;              /* (F)rontOffice (D)ivisas (O)tros            */
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCMN;
+

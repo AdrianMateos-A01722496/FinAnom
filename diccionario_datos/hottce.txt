@@ -1,0 +1,125 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTTCE.CPY                                               */
+/* DESCRIPCION: Transacciones de solicitudes para Control de Entregas      */
+/*       LLAVE:  EVENTO: evento                                            */
+/*               STATUS: status                                            */
+/*              CVE_RES: status                                            */
+/*       FECHA: 2008/01/21                                                 */
+/*-------------------------------------------------------------------------*/
+
+
+/*-------------------------------------------------------------------------*/
+typedef struct {
+char    evento[6];
+char    tipo_seguimiento;     /* Tipo de Seguimiento                       */
+                              /*   M -> Mensaje                            */
+                              /*   A -> Aviso PopUp                        */
+                              /*   S -> Seguimiento Obligatorio            */
+                              /*   O -> Seguimiento Opcional               */
+
+char    activacion[2];        /* Activacion de la Solicitud                */
+                              /*   AS -> Alta de la Solicitud              */
+                              /*   FE -> Fecha                             */
+                              /*   FH -> Fecha y Hora                      */
+                              /*   PR -> Pre-Registro                      */
+                              /*   II -> Inicio de CheckIn                 */
+                              /*   TI -> Termino de CheckIn                */
+                              /*   IO -> Inicio de CheckOut                */
+                              /*   TO -> Termino de CheckOut               */
+
+char    habitacion[6];        /* Numero de Habitacion                      */
+struct {
+   char tpo;
+   char num[8];
+   char mbo[6];
+} reservacion;                /* Clave de reservacion                      */
+char    consecutivo[3];       /* Consecutivo dentro de una reservacion     */
+
+char    caja[2];              /* Caja o centro de consumo                  */
+char    cheque[6];            /* Cheque del centro de consumo              */
+
+char    status[2];            /* Status de la solicitud                    */
+                              /*   IN -> InActiva                          */
+                              /*   AC -> Activa                            */
+                              /*   CA -> Con Alerta                        */
+                              /*   RT -> Retrasada                         */
+                              /*   OK -> Terminada                         */
+
+char    solicitud[6];         /* Codigo de la solicitud                    */
+char    descripcion[100];     /* Descripcion de la solicitud               */
+CNT     cantidad;             /* Cantidad de Articulos a Entregar          */
+
+char    departamento[3];      /* Departamento de la solicitud              */
+char    responsable[6];       /* Responsable de departamento               */
+char    colaborador[6];       /* Colaborador asignado                      */
+
+fecha   fecha_alta;           /* Fecha de alta de la solicitud             */
+hora    hora_alta;            /* Hora de alta de la solicitud              */
+char    usr_alta[6];          /* Usuario de alta de la solicitud           */
+
+fecha   fecha_acti;           /* Fecha de activacion de la solicitud       */
+hora    hora_acti;            /* Hora de activacion de la solicitud        */
+char    usr_acti[6];          /* Usuario de activacion de la solicitud     */
+
+fecha   fecha_esti;           /* Fecha estimada de entrega                 */
+hora    hora_esti;            /* Hora estimada de entrega                  */
+
+fecha   fecha_al_1;           /* Fecha de alarma 1                         */
+hora    hora_al_1;            /* Hora de alarma 1                          */
+fecha   fecha_al_2;           /* Fecha de alarma 2                         */
+hora    hora_al_2;            /* Hora de alarma 2                          */
+fecha   fecha_al_3;           /* Fecha de alarma 3                         */
+hora    hora_al_3;            /* Hora de alarma 3                          */
+
+fecha   fecha_cie;            /* Fecha de cierre de la solicitud           */
+hora    hora_cie;             /* Hora de cierre de la solicitud            */
+char	usr_cie[6];           /* Usuario de cierre de la solicitud         */
+
+char    observaciones[255];   /* Observaciones                             */
+char    area_entrega[60];     /* Area de Entrega                           */
+char    comentarios[255];     /* Comentarios capturados                    */
+char    tipo_user;            /* Tipo de usuario que realizara la actividad */
+                              /* C -> Colaborador                          */
+char    origen[3];            /* Origen de la solicitud (INN/ICP/IGS)      */
+char    motivo_no_ent[255];   /* Motivo de porque no entrego la solicitud  */
+char    motivo_retraso[255];  /* Motivo del retraso en la entrega          */
+char    cancelacionManual;    /* Cancelacion Manual                        */
+
+char    gestion[10];          /* Quien gestiono la solicitud */
+char    st_envio[10];         /* Estatus de envio */
+char    id_alice[50];         /* Numero de confirmacion de alice */
+char    desc_cargo[16];       /* Descripcion del Cargo                     */
+char	sub_origen[20];		  /* Identificador para diferenciar solicitudes desde APP FR & My Stay TV */
+
+char 	accesorio;     		  /* Indica si es Accesorio  */
+                              /* S -> Si                 */
+                              /* N -> No                 */
+							  
+char	accion;				  /* Indica la Accion de la Solicitud  */
+                              /* A -> Asignar                      */
+                              /* D -> Devolver                     */
+
+char	tipo_solicitud[6];	  /* Huesped/gerencial/interna/etc...  */
+char	tipo_tarea[6];
+char	status_solicitud[6];		 
+char	area_falla[6];		  
+char	cod_accion[6];		  
+char	categoria[6];		  
+char	sub_categoria[6];	
+	
+char	es_huesped;			  /* Indica si es Solicitud de Huésped    */
+							  /* S -> Si							  */
+							  /* N -> No							  */
+							  
+fecha   fecha_modi;           /* Fecha última modificación  de la solicitud       */
+hora    hora_modi;            /* Hora última modificación  de la solicitud        */
+char    usr_modi[6];          /* Usuario última modificación  de la solicitud     */							  
+char    nom_prog[20];							  
+
+char    recurrente;            /* S-Si N->No */
+char    tiene_asoc;            /* Tiene asociadas S/N */
+char    cod_gerencial[20];     /* Codigo con el que se identificara la gerencial y aparecera en las asociadas */
+char    llave_gerencial[15];   /* Llave para localizar la gerencial la cual seria fecha+solicitud de la gerencial */
+char    tipo_sol;              /* G-Gerencial, I-Interna, H-Huesped, A-Asociada */						  
+char    espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTTCE;

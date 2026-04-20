@@ -1,0 +1,15 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCSA.CPY                                               */
+/* DESCRIPCION: Catalogo de Segmentos Alternos.                            */
+/*      LLAVES: KEY = seg_alt                                              */
+/*       FECHA: 2004/12/14                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+char  seg_alt[3];          /* Segmento Alterno                           */
+char  descrip[30];         /* Descripcion                                */
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCSA;
+

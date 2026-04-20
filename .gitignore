@@ -1,0 +1,8 @@
+.venv
+.cursor
+.cursorignore
+AGENTS.md
+dudas_para_sf.md
+PROMPT_BOOTSTRAP.md
+docs
+.DS_Store

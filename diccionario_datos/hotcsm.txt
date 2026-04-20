@@ -1,0 +1,28 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCSM.CPY                                               */
+/* DESCRIPCION: Catalogo de Segmentos de Mercado.                          */
+/*      LLAVES: KEY = seg_mer                                              */
+/*       FECHA: 2004/12/13                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+char   seg_mer[6];         /* Segmentos de Mercado                       */
+char   descrip[30];        /* Descripcion                                */
+
+char   agencia[1];         /* lleva agencia S/N/X       */
+char   canal[1];           /* lleva canal S/N/X         */
+char   programa[1];        /* lleva programa S/N/X      */
+char   paquete[1];         /* lleva canal S/N/X         */
+char   grupo[1];           /* lleva grupo S/N/X         */
+char   reservacion[1];     /* es valido en reserva  S/N/X */
+char   tarifa0[1];         /* lleva tarifa S/N/X                               */
+char   tipo_tarifa[1];     /* que tipo tarifa #         */
+char   recepcion[1];       /* es valido en recepcion  S/N/X */
+char   cod_renta[1];       /* Codigo de tarifa para RENHAx  */
+
+CNT    millas_kms;
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCSM;
+

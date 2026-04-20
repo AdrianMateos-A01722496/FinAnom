@@ -1,0 +1,49 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTCCS.CPY                                               */
+/* DESCRIPCION: Catalogo de Categorias de Segmentos de Mercado.            */
+/*      LLAVES: KEY = seg_mer                                              */
+/*       FECHA: 2004/12/13                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+typedef struct
+{
+char   codigo[6];          /* Fijo HOTCCS como llave unica               */ 
+
+/*-------------------------------------------------------------------------*/
+/* Categorias de Mercado que agrupan a Segmentos de Mercado                */
+/*-------------------------------------------------------------------------*/
+struct
+{
+  char cat_mer;              /* Numero de la Categoria 0,1,2 ... 9         */
+  char cat_nom[15];          /* Nombre de la Categoria                     */
+  char seg[20][3];           /* Segmento de Mercado Agrupados              */
+} cat[10];
+
+/*-------------------------------------------------------------------------*/
+/* Segmentos Estadisticos                                                  */
+/*-------------------------------------------------------------------------*/
+struct
+{
+  char csa[3][6];            /* Uso Casa                                   */
+  char crt[3][6];            /* Cortesias                                  */
+  char prp[3][6];            /* Propietarios                               */
+} seg_est;
+
+
+/*-------------------------------------------------------------------------*/
+/* Agrupaciones de Cortes en Reportes de Segmentos de Mercado              */
+/*-------------------------------------------------------------------------*/
+struct {
+char  descripcion[20];
+char  seg_mer[15][3];
+} seg_grp[10];
+
+struct {
+char  descripcion[20];
+char  seg_mer[15][3];
+} seg_alt_grp[10];
+
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTCCS;
+

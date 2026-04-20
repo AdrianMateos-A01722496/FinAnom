@@ -1,0 +1,32 @@
+/*-------------------------------------------------------------------------*/
+/*     ARCHIVO: HOTREQ.CPY                                               */
+/* DESCRIPCION: Requerimientos especiales de huespedes                     */
+/*      LLAVES: KEY = tipo + res_cve + consec                              */
+/*              CVE_REQ = fecha_ejec + cve_req                             */
+/*       FECHA: 2006/02/03                                                 */
+/*-------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------*/
+
+typedef struct {
+char   res_cve[15];              /* Clave de la reservación                   */    
+char   consec[2];                /* Consecutivo de Requerimiento              */
+char   cve_req[6];               /* Clave del requerimiento                   */  
+char   desc_req[30];             /* Descripción del codigo                    */
+char   tipo;                     /* (R) Requerimiento (B) Beneficio (E) ENZO  */
+char   tipo_req;                 /* por (F)echa (L)legada (S)alida            */
+fecha  fecha_ejec;               /* Fecha en que se debe ejecutar             */
+fecha  fecha_alta;
+hora   hora_alta;
+char   comentario[64];
+char   usr_alta[3];
+char   usr_ejec[3];
+char   depto[3];
+char   pendiente;                /* N = ya esta hecho                     */
+int    num_art;                  /* Numero de articulos requeridos        */
+///VR 2006/06/27
+fecha  fecha_real_ejec;          /* Fecha en que realmente se ejecuto     */
+hora   hora_real_ejec;           /* Hora en que se realizo el req         */
+//VR
+char   espacios_oracle[10];    //NO usar es solo para lo de oracle. SIEMPRE DEBE DE IR AL FINAL
+} HOTREQ;
