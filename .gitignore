@@ -14,3 +14,4 @@ __pycache__/
 
 # Artefactos generados
 data_consolidation/output/
+data_cleaning/output/
