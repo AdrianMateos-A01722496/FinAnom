@@ -179,8 +179,15 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 # --------------------------------------------------------------------------- #
 # Diccionario de la base limpia (drop log + roles + stats)
 # --------------------------------------------------------------------------- #
-def write_dictionary(df_in: pd.DataFrame, df_out: pd.DataFrame) -> None:
+def write_dictionary(
+    df_in: pd.DataFrame,
+    df_out: pd.DataFrame,
+    dictionary_file: Path | str = DICT_FILE,
+    output_file: Path | str = OUTPUT_FILE,
+) -> None:
     """Genera diccionario_limpio.md con el log de eliminaciones y los roles."""
+    dictionary_file = Path(dictionary_file)
+    output_file = Path(output_file)
     n = len(df_out)
     lines: list[str] = []
     lines.append("# Diccionario — Base LIMPIA FINANOM\n")
@@ -189,7 +196,7 @@ def write_dictionary(df_in: pd.DataFrame, df_out: pd.DataFrame) -> None:
         "Limpieza en dos pases (sin encoding/imputación/escalado, que son fase de modelado).\n"
     )
     lines.append("## 1. Resumen\n")
-    lines.append(f"- **Archivo**: `data_cleaning/output/{OUTPUT_FILE.name}`")
+    lines.append(f"- **Archivo**: `data_cleaning/output/{output_file.name}`")
     lines.append(f"- **Filas**: {n:,} (todas; no se eliminó ninguna)")
     lines.append(f"- **Columnas**: {df_out.shape[1]} (antes {df_in.shape[1]}; se eliminaron {len(DROP_COLS)})\n")
 
@@ -228,28 +235,42 @@ def write_dictionary(df_in: pd.DataFrame, df_out: pd.DataFrame) -> None:
     lines.append("4. **Feature `n_duplicados`**: conteo de cargos idénticos por (folio, código, monto, día) — el 'cargo duplicado' del user story.")
     lines.append("")
 
-    DICT_FILE.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Guardado diccionario: {DICT_FILE}")
+    dictionary_file.parent.mkdir(parents=True, exist_ok=True)
+    dictionary_file.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Guardado diccionario: {dictionary_file}")
 
 
 # --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
-def main() -> None:
-    print(f"Leyendo base consolidada: {INPUT_FILE}")
-    df_in = pd.read_parquet(INPUT_FILE)
+def run_cleaning(
+    input_file: Path | str = INPUT_FILE,
+    output_file: Path | str = OUTPUT_FILE,
+    dictionary_file: Path | str = DICT_FILE,
+) -> Path:
+    """Ejecuta la fase de limpieza y devuelve el parquet generado."""
+    input_file = Path(input_file)
+    output_file = Path(output_file)
+
+    print(f"Leyendo base consolidada: {input_file}")
+    df_in = pd.read_parquet(input_file)
     print(f"  entrada: {df_in.shape[0]:,} filas, {df_in.shape[1]} columnas\n")
 
     df_out = clean(df_in)
     print(f"\n  salida:  {df_out.shape[0]:,} filas, {df_out.shape[1]} columnas")
     print(f"  eliminadas: {len(DROP_COLS)} columnas | filas: sin cambios\n")
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    df_out.to_parquet(OUTPUT_FILE, index=False)
-    size_mb = OUTPUT_FILE.stat().st_size / 1e6
-    print(f"Guardado: {OUTPUT_FILE}  ({size_mb:.1f} MB)")
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    df_out.to_parquet(output_file, index=False)
+    size_mb = output_file.stat().st_size / 1e6
+    print(f"Guardado: {output_file}  ({size_mb:.1f} MB)")
 
-    write_dictionary(df_in, df_out)
+    write_dictionary(df_in, df_out, dictionary_file, output_file)
+    return output_file
+
+
+def main() -> None:
+    run_cleaning()
 
 
 if __name__ == "__main__":

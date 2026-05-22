@@ -118,9 +118,10 @@ def build_timestamp(fecha: pd.Series, hra: pd.Series, mto: pd.Series) -> pd.Seri
 # --------------------------------------------------------------------------- #
 # Carga + limpieza por tabla
 # --------------------------------------------------------------------------- #
-def load_hottra() -> pd.DataFrame:
+def load_hottra(parquet_dir: Path | str = PARQUET_DIR) -> pd.DataFrame:
     """Carga y limpia la tabla de transacciones."""
-    df = pd.read_parquet(PARQUET_DIR / "hottra.parquet", columns=HOTTRA_COLS)
+    parquet_dir = Path(parquet_dir)
+    df = pd.read_parquet(parquet_dir / "hottra.parquet", columns=HOTTRA_COLS)
 
     # Timestamp del cargo (fecha + hora + minuto).
     df["t_timestamp"] = build_timestamp(df["t_fecha"], df["t_tra_hra"], df["t_tra_mto"])
@@ -147,9 +148,10 @@ def load_hottra() -> pd.DataFrame:
     return df
 
 
-def load_hothsp() -> pd.DataFrame:
+def load_hothsp(parquet_dir: Path | str = PARQUET_DIR) -> pd.DataFrame:
     """Carga y limpia el contexto de reservación."""
-    df = pd.read_parquet(PARQUET_DIR / "hothsp.parquet", columns=HOTHSP_COLS)
+    parquet_dir = Path(parquet_dir)
+    df = pd.read_parquet(parquet_dir / "hothsp.parquet", columns=HOTHSP_COLS)
 
     for c in HOTHSP_DATE_COLS:
         df[c] = parse_yyyymmdd(df[c])
@@ -167,14 +169,15 @@ def load_hothsp() -> pd.DataFrame:
 # --------------------------------------------------------------------------- #
 # Consolidación
 # --------------------------------------------------------------------------- #
-def consolidate() -> pd.DataFrame:
+def consolidate(raw_dir: Path | str = PARQUET_DIR) -> pd.DataFrame:
     """Construye la tabla consolidada transacción + contexto de reservación."""
+    raw_dir = Path(raw_dir)
     print("Cargando hottra (transacciones)...")
-    tra = load_hottra()
+    tra = load_hottra(raw_dir)
     print(f"  hottra: {len(tra):,} filas, {tra.shape[1]} columnas")
 
     print("Cargando hothsp (reservaciones)...")
-    hsp = load_hothsp()
+    hsp = load_hothsp(raw_dir)
     print(f"  hothsp: {len(hsp):,} reservaciones, {hsp.shape[1]} columnas")
 
     print("Uniendo (LEFT JOIN t_cve_res == h_res_cve)...")
@@ -194,12 +197,23 @@ def consolidate() -> pd.DataFrame:
     return out
 
 
+def run_consolidation(
+    raw_dir: Path | str = PARQUET_DIR,
+    output_file: Path | str = OUTPUT_FILE,
+) -> Path:
+    """Ejecuta la fase de consolidacion y devuelve el parquet generado."""
+    output_file = Path(output_file)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    df = consolidate(raw_dir)
+    df.to_parquet(output_file, index=False)
+    size_mb = output_file.stat().st_size / 1e6
+    print(f"\nGuardado: {output_file}  ({size_mb:.1f} MB)")
+    return output_file
+
+
 def main() -> None:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    df = consolidate()
-    df.to_parquet(OUTPUT_FILE, index=False)
-    size_mb = OUTPUT_FILE.stat().st_size / 1e6
-    print(f"\nGuardado: {OUTPUT_FILE}  ({size_mb:.1f} MB)")
+    run_consolidation()
 
 
 if __name__ == "__main__":

@@ -57,6 +57,36 @@ PERMUTATION_SAMPLE_SIZE = 20_000
 PROXY_CONTAMINATION = 0.02
 
 
+@dataclass(frozen=True)
+class ModelingPaths:
+    """Rutas de artefactos generados por la fase de modelado."""
+
+    output_dir: Path
+    output_file: Path
+    feature_matrix_file: Path
+    quality_report_file: Path
+    quality_json_file: Path
+    feature_importance_file: Path
+    anomaly_sample_file: Path
+    importance_plot_file: Path
+    score_plot_file: Path
+
+    @classmethod
+    def from_output_dir(cls, output_dir: Path | str = OUTPUT_DIR) -> "ModelingPaths":
+        output_dir = Path(output_dir)
+        return cls(
+            output_dir=output_dir,
+            output_file=output_dir / "transacciones_modelado.parquet",
+            feature_matrix_file=output_dir / "X_modelo.parquet",
+            quality_report_file=output_dir / "reporte_calidad_modelado.md",
+            quality_json_file=output_dir / "diagnosticos_modelado.json",
+            feature_importance_file=output_dir / "proxy_feature_importance.csv",
+            anomaly_sample_file=output_dir / "proxy_anomaly_sample.csv",
+            importance_plot_file=output_dir / "proxy_feature_importance_top20.png",
+            score_plot_file=output_dir / "proxy_anomaly_score_distribution.png",
+        )
+
+
 # --------------------------------------------------------------------------- #
 # Columnas de entrada por rol
 # --------------------------------------------------------------------------- #
@@ -835,7 +865,7 @@ def fit_proxy_iforest(features: pd.DataFrame) -> tuple[IsolationForest, pd.DataF
     return model, sample, score
 
 
-def write_proxy_plots(importance: pd.DataFrame, scores: pd.Series) -> None:
+def write_proxy_plots(importance: pd.DataFrame, scores: pd.Series, paths: ModelingPaths) -> None:
     """Guarda graficas diagnosticas ligeras."""
     top = importance.head(20).iloc[::-1]
     plt.figure(figsize=(9, 7))
@@ -843,7 +873,7 @@ def write_proxy_plots(importance: pd.DataFrame, scores: pd.Series) -> None:
     plt.xlabel("Importancia por frecuencia de splits")
     plt.title("Isolation Forest proxy - Top 20 features")
     plt.tight_layout()
-    plt.savefig(IMPORTANCE_PLOT_FILE, dpi=160)
+    plt.savefig(paths.importance_plot_file, dpi=160)
     plt.close()
 
     plt.figure(figsize=(9, 5))
@@ -854,11 +884,11 @@ def write_proxy_plots(importance: pd.DataFrame, scores: pd.Series) -> None:
     plt.title("Distribucion de scores - Isolation Forest proxy")
     plt.legend()
     plt.tight_layout()
-    plt.savefig(SCORE_PLOT_FILE, dpi=160)
+    plt.savefig(paths.score_plot_file, dpi=160)
     plt.close()
 
 
-def run_diagnostics(features: pd.DataFrame, trace: pd.DataFrame) -> DiagnosticResult:
+def run_diagnostics(features: pd.DataFrame, trace: pd.DataFrame, paths: ModelingPaths) -> DiagnosticResult:
     """Ejecuta la evaluacion recursiva de calidad y escribe artefactos auxiliares."""
     candidate_pairs = find_high_correlation_pairs(features)
     candidate_near_zero = near_zero_variance(features)
@@ -868,8 +898,8 @@ def run_diagnostics(features: pd.DataFrame, trace: pd.DataFrame) -> DiagnosticRe
 
     model, sample, scores = fit_proxy_iforest(final_features)
     importance = proxy_feature_importance(model, sample)
-    importance.to_csv(FEATURE_IMPORTANCE_FILE, index=False)
-    write_proxy_plots(importance, scores)
+    importance.to_csv(paths.feature_importance_file, index=False)
+    write_proxy_plots(importance, scores, paths)
 
     anomaly_cutoff = float(scores.quantile(1 - PROXY_CONTAMINATION))
     sample_out = (
@@ -878,7 +908,7 @@ def run_diagnostics(features: pd.DataFrame, trace: pd.DataFrame) -> DiagnosticRe
         .sort_values("proxy_anomaly_score", ascending=False)
         .head(200)
     )
-    sample_out.to_csv(ANOMALY_SAMPLE_FILE, index=False)
+    sample_out.to_csv(paths.anomaly_sample_file, index=False)
 
     score_summary = {
         "min": float(scores.min()),
@@ -903,7 +933,7 @@ def run_diagnostics(features: pd.DataFrame, trace: pd.DataFrame) -> DiagnosticRe
         "anomaly_score_summary": score_summary,
         "top_proxy_features": importance.head(20).to_dict(orient="records"),
     }
-    QUALITY_JSON_FILE.write_text(json.dumps(diagnostics, indent=2, ensure_ascii=False), encoding="utf-8")
+    paths.quality_json_file.write_text(json.dumps(diagnostics, indent=2, ensure_ascii=False), encoding="utf-8")
 
     result = DiagnosticResult(
         dropped_features=dropped,
@@ -913,7 +943,7 @@ def run_diagnostics(features: pd.DataFrame, trace: pd.DataFrame) -> DiagnosticRe
         anomaly_score_summary=score_summary,
         proxy_sample_size=len(sample),
     )
-    write_quality_report(features, final_features, result, candidate_pairs, candidate_near_zero)
+    write_quality_report(features, final_features, result, candidate_pairs, candidate_near_zero, paths)
     return result
 
 
@@ -930,6 +960,7 @@ def write_quality_report(
     result: DiagnosticResult,
     candidate_pairs: list[dict[str, object]],
     candidate_near_zero: list[dict[str, object]],
+    paths: ModelingPaths,
 ) -> None:
     """Escribe reporte markdown de la evaluacion iterativa."""
     lines: list[str] = []
@@ -1024,18 +1055,25 @@ def write_quality_report(
     )
     lines.append("")
     lines.append("## Artefactos\n")
-    lines.append(f"- Dataset final: `data_modeling/output/{OUTPUT_FILE.name}`")
-    lines.append(f"- Matriz numerica pura: `data_modeling/output/{FEATURE_MATRIX_FILE.name}`")
-    lines.append(f"- Importancias proxy: `data_modeling/output/{FEATURE_IMPORTANCE_FILE.name}`")
-    lines.append(f"- Muestra top anomalias proxy: `data_modeling/output/{ANOMALY_SAMPLE_FILE.name}`")
-    lines.append(f"- Grafica importancias: `data_modeling/output/{IMPORTANCE_PLOT_FILE.name}`")
-    lines.append(f"- Grafica scores: `data_modeling/output/{SCORE_PLOT_FILE.name}`")
+    lines.append(f"- Dataset final: `data_modeling/output/{paths.output_file.name}`")
+    lines.append(f"- Matriz numerica pura: `data_modeling/output/{paths.feature_matrix_file.name}`")
+    lines.append(f"- Importancias proxy: `data_modeling/output/{paths.feature_importance_file.name}`")
+    lines.append(f"- Muestra top anomalias proxy: `data_modeling/output/{paths.anomaly_sample_file.name}`")
+    lines.append(f"- Grafica importancias: `data_modeling/output/{paths.importance_plot_file.name}`")
+    lines.append(f"- Grafica scores: `data_modeling/output/{paths.score_plot_file.name}`")
 
-    QUALITY_REPORT_FILE.write_text("\n".join(lines), encoding="utf-8")
+    paths.quality_report_file.write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_dictionary(output_df: pd.DataFrame, feature_cols: list[str], dropped_features: dict[str, str]) -> None:
+def write_dictionary(
+    output_df: pd.DataFrame,
+    feature_cols: list[str],
+    dropped_features: dict[str, str],
+    paths: ModelingPaths,
+    dictionary_file: Path | str = DICT_FILE,
+) -> None:
     """Genera diccionario de datos actualizado para el dataset modelado."""
+    dictionary_file = Path(dictionary_file)
     lines: list[str] = []
     lines.append("# Diccionario — Base MODELADA FINANOM\n")
     lines.append(
@@ -1043,8 +1081,8 @@ def write_dictionary(output_df: pd.DataFrame, feature_cols: list[str], dropped_f
         "`data_cleaning/output/transacciones_limpio.parquet`.\n"
     )
     lines.append("## 1. Resumen\n")
-    lines.append(f"- **Archivo principal**: `data_modeling/output/{OUTPUT_FILE.name}`")
-    lines.append(f"- **Matriz numerica pura**: `data_modeling/output/{FEATURE_MATRIX_FILE.name}`")
+    lines.append(f"- **Archivo principal**: `data_modeling/output/{paths.output_file.name}`")
+    lines.append(f"- **Matriz numerica pura**: `data_modeling/output/{paths.feature_matrix_file.name}`")
     lines.append(f"- **Filas**: {len(output_df):,} (una por transaccion; no se eliminaron filas)")
     lines.append(f"- **Columnas totales**: {output_df.shape[1]}")
     lines.append(f"- **Columnas de trazabilidad**: {output_df.shape[1] - len(feature_cols)}")
@@ -1117,7 +1155,8 @@ def write_dictionary(output_df: pd.DataFrame, feature_cols: list[str], dropped_f
         "features raras, Isolation Forest proxy e importancias."
     )
 
-    DICT_FILE.write_text("\n".join(lines), encoding="utf-8")
+    dictionary_file.parent.mkdir(parents=True, exist_ok=True)
+    dictionary_file.write_text("\n".join(lines), encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- #
@@ -1142,12 +1181,12 @@ def validate_input(df: pd.DataFrame) -> None:
         raise ValueError(f"La base limpia no tiene columnas requeridas para modelado: {missing}")
 
 
-def build_modeled_dataset(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], DiagnosticResult]:
+def build_modeled_dataset(df: pd.DataFrame, paths: ModelingPaths) -> tuple[pd.DataFrame, list[str], DiagnosticResult]:
     """Construye dataset final y devuelve columnas feature."""
     validate_input(df)
     trace = add_prefixed_trace(df)
     candidate_features = build_features(df)
-    diagnostic = run_diagnostics(candidate_features, trace)
+    diagnostic = run_diagnostics(candidate_features, trace, paths)
     final_features, _ = select_final_features(candidate_features)
 
     feature_cols = final_features.columns.to_list()
@@ -1155,27 +1194,51 @@ def build_modeled_dataset(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], Di
     return output, feature_cols, diagnostic
 
 
-def main() -> None:
+def run_modeling(
+    input_file: Path | str = INPUT_FILE,
+    output_dir: Path | str = OUTPUT_DIR,
+    dictionary_file: Path | str = DICT_FILE,
+) -> dict[str, Path]:
+    """Ejecuta la fase de modelado y devuelve los artefactos generados."""
     warnings.filterwarnings("ignore", category=UserWarning)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    input_file = Path(input_file)
+    dictionary_file = Path(dictionary_file)
+    paths = ModelingPaths.from_output_dir(output_dir)
+    paths.output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Leyendo base limpia: {INPUT_FILE}")
-    df = pd.read_parquet(INPUT_FILE)
+    print(f"Leyendo base limpia: {input_file}")
+    df = pd.read_parquet(input_file)
     print(f"  entrada: {df.shape[0]:,} filas, {df.shape[1]} columnas")
 
-    output, feature_cols, diagnostic = build_modeled_dataset(df)
+    output, feature_cols, diagnostic = build_modeled_dataset(df, paths)
     print(f"  salida:  {output.shape[0]:,} filas, {output.shape[1]} columnas")
     print(f"  features finales: {len(feature_cols)}")
     print(f"  features eliminadas en diagnostico: {len(diagnostic.dropped_features)}")
 
-    output.to_parquet(OUTPUT_FILE, index=False)
-    output[feature_cols].to_parquet(FEATURE_MATRIX_FILE, index=False)
-    write_dictionary(output, feature_cols, diagnostic.dropped_features)
+    output.to_parquet(paths.output_file, index=False)
+    output[feature_cols].to_parquet(paths.feature_matrix_file, index=False)
+    write_dictionary(output, feature_cols, diagnostic.dropped_features, paths, dictionary_file)
 
-    print(f"\nGuardado dataset: {OUTPUT_FILE} ({OUTPUT_FILE.stat().st_size / 1e6:.1f} MB)")
-    print(f"Guardada matriz X: {FEATURE_MATRIX_FILE} ({FEATURE_MATRIX_FILE.stat().st_size / 1e6:.1f} MB)")
-    print(f"Guardado diccionario: {DICT_FILE}")
-    print(f"Guardado reporte: {QUALITY_REPORT_FILE}")
+    print(f"\nGuardado dataset: {paths.output_file} ({paths.output_file.stat().st_size / 1e6:.1f} MB)")
+    print(f"Guardada matriz X: {paths.feature_matrix_file} ({paths.feature_matrix_file.stat().st_size / 1e6:.1f} MB)")
+    print(f"Guardado diccionario: {dictionary_file}")
+    print(f"Guardado reporte: {paths.quality_report_file}")
+
+    return {
+        "dataset": paths.output_file,
+        "feature_matrix": paths.feature_matrix_file,
+        "dictionary": dictionary_file,
+        "quality_report": paths.quality_report_file,
+        "quality_json": paths.quality_json_file,
+        "feature_importance": paths.feature_importance_file,
+        "anomaly_sample": paths.anomaly_sample_file,
+        "importance_plot": paths.importance_plot_file,
+        "score_plot": paths.score_plot_file,
+    }
+
+
+def main() -> None:
+    run_modeling()
 
 
 if __name__ == "__main__":
