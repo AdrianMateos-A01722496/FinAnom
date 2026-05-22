@@ -1,11 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
 .env
-__pycache__
-.venv
-.vscode
-.cursor
+
+# uv / venv
+.venv/
+
+# Editores / SO
+.vscode/
+.cursor/
 .cursorignore
-AGENTS.md
-dudas_para_sf.md
-PROMPT_BOOTSTRAP.md
-docs
 .DS_Store
+
+# Artefactos generados
+data_consolidation/output/
