@@ -4,8 +4,8 @@ Generado por `data_modeling/data_modeling.py` a partir de `data_cleaning/output/
 
 ## 1. Resumen
 
-- **Archivo principal**: `data_modeling/output/transacciones_modelado.parquet`
-- **Matriz numerica pura**: `data_modeling/output/X_modelo.parquet`
+- **Archivo principal**: `training_data/transacciones_modelado.parquet`
+- **Matriz numerica pura**: `training_data/X_modelo.parquet`
 - **Filas**: 1,145,526 (una por transaccion; no se eliminaron filas)
 - **Columnas totales**: 72
 - **Columnas de trazabilidad**: 9

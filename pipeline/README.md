@@ -4,9 +4,9 @@ Este directorio orquesta las tres fases reproducibles del proyecto:
 
 1. Consolidacion: `tablas_parquet/` -> `data_consolidation/output/transacciones_consolidado.parquet`
 2. Limpieza: consolidado -> `data_cleaning/output/transacciones_limpio.parquet`
-3. Modelado: limpio -> `data_modeling/output/transacciones_modelado.parquet` y `X_modelo.parquet`
+3. Modelado: limpio -> `training_data/transacciones_modelado.parquet` y `training_data/X_modelo.parquet`
 
-Los notebooks y diccionarios siguen siendo documentacion explicativa. La fuente ejecutable del pipeline son los scripts Python.
+Los notebooks y diccionarios siguen siendo documentacion explicativa. La fuente ejecutable del pipeline son los scripts Python. Los diagnosticos proxy del modelado se guardan en `data_modeling/output/`.
 
 ## Ejecucion local
 
@@ -38,8 +38,8 @@ La UI queda disponible en `http://127.0.0.1:4200`.
 - `data_consolidation/output/transacciones_consolidado.parquet`
 - `data_cleaning/output/transacciones_limpio.parquet`
 - `data_cleaning/diccionario_limpio.md`
-- `data_modeling/output/transacciones_modelado.parquet`
-- `data_modeling/output/X_modelo.parquet`
+- `training_data/transacciones_modelado.parquet`
+- `training_data/X_modelo.parquet`
 - `data_modeling/diccionario_modelado.md`
 - `data_modeling/output/reporte_calidad_modelado.md`
 - `data_modeling/output/proxy_feature_importance.csv`

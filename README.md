@@ -36,14 +36,14 @@ Fases:
 2. **Limpieza** (`data_cleaning/`): elimina columnas redundantes, constantes, colineales o de bajo valor sin borrar transacciones.
 3. **Modelado de datos** (`data_modeling/`): crea features, aplica encoding, escalado robusto, imputación, diagnósticos de calidad e Isolation Forest proxy.
 
-Los notebooks y diccionarios documentan las decisiones de cada fase. Los archivos en `output/` son artefactos regenerables y no son la fuente de verdad.
+Los notebooks y diccionarios documentan las decisiones de cada fase. Los archivos en `output/` son artefactos regenerables de cada etapa. Los datasets finales para entrenar modelos viven en `training_data/`.
 
 ## Artefactos principales
 
 - `data_consolidation/output/transacciones_consolidado.parquet`
 - `data_cleaning/output/transacciones_limpio.parquet`
-- `data_modeling/output/transacciones_modelado.parquet`
-- `data_modeling/output/X_modelo.parquet`
+- `training_data/transacciones_modelado.parquet`
+- `training_data/X_modelo.parquet`
 - `data_consolidation/diccionario_base_consolidada.md`
 - `data_cleaning/diccionario_limpio.md`
 - `data_modeling/diccionario_modelado.md`

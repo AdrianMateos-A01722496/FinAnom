@@ -41,8 +41,9 @@ from sklearn.ensemble import IsolationForest
 ROOT = Path(__file__).resolve().parent.parent
 INPUT_FILE = ROOT / "data_cleaning" / "output" / "transacciones_limpio.parquet"
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
-OUTPUT_FILE = OUTPUT_DIR / "transacciones_modelado.parquet"
-FEATURE_MATRIX_FILE = OUTPUT_DIR / "X_modelo.parquet"
+TRAINING_DATA_DIR = ROOT / "training_data"
+OUTPUT_FILE = TRAINING_DATA_DIR / "transacciones_modelado.parquet"
+FEATURE_MATRIX_FILE = TRAINING_DATA_DIR / "X_modelo.parquet"
 DICT_FILE = Path(__file__).resolve().parent / "diccionario_modelado.md"
 QUALITY_REPORT_FILE = OUTPUT_DIR / "reporte_calidad_modelado.md"
 QUALITY_JSON_FILE = OUTPUT_DIR / "diagnosticos_modelado.json"
@@ -62,6 +63,7 @@ class ModelingPaths:
     """Rutas de artefactos generados por la fase de modelado."""
 
     output_dir: Path
+    training_data_dir: Path
     output_file: Path
     feature_matrix_file: Path
     quality_report_file: Path
@@ -72,12 +74,18 @@ class ModelingPaths:
     score_plot_file: Path
 
     @classmethod
-    def from_output_dir(cls, output_dir: Path | str = OUTPUT_DIR) -> "ModelingPaths":
+    def from_dirs(
+        cls,
+        output_dir: Path | str = OUTPUT_DIR,
+        training_data_dir: Path | str = TRAINING_DATA_DIR,
+    ) -> "ModelingPaths":
         output_dir = Path(output_dir)
+        training_data_dir = Path(training_data_dir)
         return cls(
             output_dir=output_dir,
-            output_file=output_dir / "transacciones_modelado.parquet",
-            feature_matrix_file=output_dir / "X_modelo.parquet",
+            training_data_dir=training_data_dir,
+            output_file=training_data_dir / "transacciones_modelado.parquet",
+            feature_matrix_file=training_data_dir / "X_modelo.parquet",
             quality_report_file=output_dir / "reporte_calidad_modelado.md",
             quality_json_file=output_dir / "diagnosticos_modelado.json",
             feature_importance_file=output_dir / "proxy_feature_importance.csv",
@@ -954,6 +962,14 @@ def format_pct(value: float) -> str:
     return f"{100 * value:.2f}%"
 
 
+def display_path(path: Path) -> str:
+    """Devuelve una ruta legible relativa al repo cuando se puede."""
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def write_quality_report(
     candidate_features: pd.DataFrame,
     final_features: pd.DataFrame,
@@ -1055,12 +1071,12 @@ def write_quality_report(
     )
     lines.append("")
     lines.append("## Artefactos\n")
-    lines.append(f"- Dataset final: `data_modeling/output/{paths.output_file.name}`")
-    lines.append(f"- Matriz numerica pura: `data_modeling/output/{paths.feature_matrix_file.name}`")
-    lines.append(f"- Importancias proxy: `data_modeling/output/{paths.feature_importance_file.name}`")
-    lines.append(f"- Muestra top anomalias proxy: `data_modeling/output/{paths.anomaly_sample_file.name}`")
-    lines.append(f"- Grafica importancias: `data_modeling/output/{paths.importance_plot_file.name}`")
-    lines.append(f"- Grafica scores: `data_modeling/output/{paths.score_plot_file.name}`")
+    lines.append(f"- Dataset final: `{display_path(paths.output_file)}`")
+    lines.append(f"- Matriz numerica pura: `{display_path(paths.feature_matrix_file)}`")
+    lines.append(f"- Importancias proxy: `{display_path(paths.feature_importance_file)}`")
+    lines.append(f"- Muestra top anomalias proxy: `{display_path(paths.anomaly_sample_file)}`")
+    lines.append(f"- Grafica importancias: `{display_path(paths.importance_plot_file)}`")
+    lines.append(f"- Grafica scores: `{display_path(paths.score_plot_file)}`")
 
     paths.quality_report_file.write_text("\n".join(lines), encoding="utf-8")
 
@@ -1081,8 +1097,8 @@ def write_dictionary(
         "`data_cleaning/output/transacciones_limpio.parquet`.\n"
     )
     lines.append("## 1. Resumen\n")
-    lines.append(f"- **Archivo principal**: `data_modeling/output/{paths.output_file.name}`")
-    lines.append(f"- **Matriz numerica pura**: `data_modeling/output/{paths.feature_matrix_file.name}`")
+    lines.append(f"- **Archivo principal**: `{display_path(paths.output_file)}`")
+    lines.append(f"- **Matriz numerica pura**: `{display_path(paths.feature_matrix_file)}`")
     lines.append(f"- **Filas**: {len(output_df):,} (una por transaccion; no se eliminaron filas)")
     lines.append(f"- **Columnas totales**: {output_df.shape[1]}")
     lines.append(f"- **Columnas de trazabilidad**: {output_df.shape[1] - len(feature_cols)}")
@@ -1151,7 +1167,7 @@ def write_dictionary(
 
     lines.append("## 6. Evaluacion recursiva\n")
     lines.append(
-        "Ver `data_modeling/output/reporte_calidad_modelado.md` para correlaciones, "
+        f"Ver `{display_path(paths.quality_report_file)}` para correlaciones, "
         "features raras, Isolation Forest proxy e importancias."
     )
 
@@ -1197,14 +1213,22 @@ def build_modeled_dataset(df: pd.DataFrame, paths: ModelingPaths) -> tuple[pd.Da
 def run_modeling(
     input_file: Path | str = INPUT_FILE,
     output_dir: Path | str = OUTPUT_DIR,
+    training_data_dir: Path | str = TRAINING_DATA_DIR,
     dictionary_file: Path | str = DICT_FILE,
 ) -> dict[str, Path]:
     """Ejecuta la fase de modelado y devuelve los artefactos generados."""
     warnings.filterwarnings("ignore", category=UserWarning)
     input_file = Path(input_file)
     dictionary_file = Path(dictionary_file)
-    paths = ModelingPaths.from_output_dir(output_dir)
+    paths = ModelingPaths.from_dirs(output_dir, training_data_dir)
     paths.output_dir.mkdir(parents=True, exist_ok=True)
+    paths.training_data_dir.mkdir(parents=True, exist_ok=True)
+    for legacy_file in [
+        paths.output_dir / "transacciones_modelado.parquet",
+        paths.output_dir / "X_modelo.parquet",
+    ]:
+        if legacy_file.exists() and legacy_file not in {paths.output_file, paths.feature_matrix_file}:
+            legacy_file.unlink()
 
     print(f"Leyendo base limpia: {input_file}")
     df = pd.read_parquet(input_file)
