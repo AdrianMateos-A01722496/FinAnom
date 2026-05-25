@@ -36,6 +36,14 @@ Fases:
 2. **Limpieza** (`data_cleaning/`): elimina columnas redundantes, constantes, colineales o de bajo valor sin borrar transacciones.
 3. **Modelado de datos** (`data_modeling/`): crea features, aplica encoding, escalado robusto, imputación, diagnósticos de calidad e Isolation Forest proxy.
 
+Y la fase de **entrenamiento** del modelo, en un flow aparte que parte de `training_data/`:
+
+```bash
+uv run python pipeline/finanom_training_flow.py
+```
+
+4. **Entrenamiento** (`model_training/`): modelo HÍBRIDO (Isolation Forest no supervisado + reglas de negocio tipadas) que produce un reporte de revisión explicable para el auditor nocturno, su evaluación de calidad (inyección sintética, estabilidad, overlap) y la model card.
+
 Los notebooks y diccionarios documentan las decisiones de cada fase. Los archivos en `output/` son artefactos regenerables de cada etapa. Los datasets finales para entrenar modelos viven en `training_data/`.
 
 ## Artefactos principales
@@ -47,6 +55,8 @@ Los notebooks y diccionarios documentan las decisiones de cada fase. Los archivo
 - `data_consolidation/diccionario_base_consolidada.md`
 - `data_cleaning/diccionario_limpio.md`
 - `data_modeling/diccionario_modelado.md`
+- `model_training/output/reporte_revision.parquet` (cola de revisión explicable)
+- `model_training/output/reporte_evaluacion_modelo.md` y `model_training/modelo_card.md`
 
 ## Estado actual
 
@@ -56,6 +66,7 @@ El pipeline completo genera:
 - 63 features finales para modelado.
 - Matriz `X_modelo.parquet` completamente numérica, sin nulos y sin features constantes.
 - Reportes de calidad e importancias proxy para interpretar qué variables aportan señal.
+- Modelo híbrido entrenado: cola de revisión de ~2% (presupuesto del auditor nocturno) con tipo de inconsistencia, motivo, features explicativas y acción sugerida por transacción.
 
 ## Instalación
 
