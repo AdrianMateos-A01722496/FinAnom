@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from anomaly_detection.reglas import detectar_anomalias
+from anomaly_detection.reglas import detectar_anomalias, separar_alertas
 
 
 # --------------------------------------------------------------------------- #
@@ -302,39 +302,50 @@ def _print_separador(titulo: str) -> None:
 
 
 def _print_resumen(alertas: pd.DataFrame) -> None:
-    total       = len(alertas)
-    anomalias   = alertas["es_anomalia"].sum()
-    por_nivel   = alertas[alertas["es_anomalia"]]["nivel_riesgo"].value_counts()
+    total      = len(alertas)
+    operativas, contexto = separar_alertas(alertas)
+    n_op  = len(operativas)
+    n_ctx = len(contexto)
+
+    print(f"\nTotal transacciones analizadas : {total:,}")
+    print(f"Alertas operativas (score≥25)  : {n_op:,} ({n_op/total:.1%})")
+    print(f"Señales de contexto (débiles)  : {n_ctx:,} ({n_ctx/total:.1%})")
+    print(f"Sin anomalía                   : {total - n_op - n_ctx:,}")
+
+    if n_op == 0:
+        print("\n[Sin alertas operativas]")
+        return
+
+    por_nivel = operativas["nivel_riesgo"].value_counts()
+    print("\nAlertas operativas por nivel de riesgo:")
+    for nivel in ["CRITICO", "ALTO", "MEDIO", "BAJO"]:
+        n = por_nivel.get(nivel, 0)
+        if n:
+            print(f"  {nivel:10s}: {n:,}")
+
     por_cluster = (
-        alertas[alertas["es_anomalia"]]["cluster_anomalia"]
+        operativas["cluster_anomalia"]
         .str.split(" | ", regex=False)
         .explode()
         .str.strip()
         .loc[lambda s: s.str.len() > 0]
         .value_counts()
     )
-
-    print(f"\nTotal transacciones analizadas : {total}")
-    print(f"Con anomalía                   : {anomalias} ({anomalias/total:.0%})")
-    print(f"Sin anomalía                   : {total - anomalias}")
-
-    print("\nPor nivel de riesgo:")
-    for nivel in ["CRITICO", "ALTO", "MEDIO", "BAJO"]:
-        n = por_nivel.get(nivel, 0)
-        if n:
-            print(f"  {nivel:10s}: {n}")
-
-    print("\nPor cluster de anomalía:")
+    print("\nAlertas operativas por cluster:")
     for cluster, count in por_cluster.items():
-        print(f"  {cluster:35s}: {count}")
+        print(f"  {cluster:35s}: {count:,}")
 
 
-def _print_alertas_detalle(alertas: pd.DataFrame, max_rows: int = 15) -> None:
-    anom = alertas[alertas["es_anomalia"]].sort_values("score_riesgo", ascending=False)
-    print(f"\nDetalle de alertas (top {min(max_rows, len(anom))}):\n")
-    for _, row in anom.head(max_rows).iterrows():
-        print(f"  [{row['nivel_riesgo']:8s}] score={row['score_riesgo']:3d} | {row['mensaje_alerta']}")
-        print(f"           reglas: {row['reglas_activadas'][:120]}")
+def _print_alertas_detalle(alertas: pd.DataFrame, max_rows: int = 30) -> None:
+    operativas, _ = separar_alertas(alertas)
+    top = operativas.sort_values("score_riesgo", ascending=False).head(max_rows)
+    print(f"\nTop {min(max_rows, len(top))} alertas operativas más críticas:\n")
+    for _, row in top.iterrows():
+        ctx = f" | ctx: {row['senales_contexto'][:80]}" if row.get("senales_contexto", "") else ""
+        print(f"  [{row['nivel_riesgo']:8s}] score={row['score_riesgo']:3d} | {row['mensaje_alerta'][:110]}")
+        if ctx:
+            print(f"           {ctx}")
+        print(f"           reglas: {row['reglas_activadas'][:110]}")
         print()
 
 
@@ -350,8 +361,9 @@ def demo_sintetico() -> None:
 
     salida = ROOT / "anomaly_detection" / "output_demo_sintetico.csv"
     salida.parent.mkdir(parents=True, exist_ok=True)
-    alertas.to_csv(salida, index=False, encoding="utf-8")
-    print(f"Resultado guardado: {salida}")
+    operativas, _ = separar_alertas(alertas)
+    operativas.to_csv(salida, index=False, encoding="utf-8")
+    print(f"Alertas operativas guardadas: {salida}")
 
 
 def _construir_muestra_real(max_filas: int = 5_000, random_state: int = 42) -> pd.DataFrame | None:
@@ -425,11 +437,15 @@ def demo_real(max_filas: int = 5_000) -> None:
 
     alertas = detectar_anomalias(df)
     _print_resumen(alertas)
-    _print_alertas_detalle(alertas, max_rows=20)
+    _print_alertas_detalle(alertas, max_rows=30)
 
-    salida = ROOT / "anomaly_detection" / "output_alertas_real.csv"
-    alertas[alertas["es_anomalia"]].to_csv(salida, index=False, encoding="utf-8")
-    print(f"\nAlertas exportadas: {salida}")
+    operativas, contexto = separar_alertas(alertas)
+    salida_op  = ROOT / "anomaly_detection" / "output_alertas_operativas.csv"
+    salida_ctx = ROOT / "anomaly_detection" / "output_senales_contexto.csv"
+    operativas.to_csv(salida_op,  index=False, encoding="utf-8")
+    contexto.to_csv(salida_ctx,   index=False, encoding="utf-8")
+    print(f"\nAlertas operativas exportadas : {salida_op}")
+    print(f"Señales de contexto exportadas: {salida_ctx}")
 
 
 if __name__ == "__main__":
