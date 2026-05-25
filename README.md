@@ -6,7 +6,7 @@ FINANOM es una demo de deteccion no supervisada de anomalías e inconsistencias 
 
 En hoteles, cargos duplicados, errores de posteo manual, montos fuera de contexto o cancelaciones mal registradas suelen detectarse hasta la auditoría nocturna. Esto retrasa el cierre contable y obliga al auditor a corregir incidencias cuando el día operativo ya terminó.
 
-## User story
+## User story 
 
 > Como auditor, quiero que el sistema me alerte sobre cargos atípicos durante el día para no esperar a la auditoría nocturna para corregirlos.
 
@@ -68,7 +68,7 @@ El pipeline completo genera:
 - Reportes de calidad e importancias proxy para interpretar qué variables aportan señal.
 - Modelo híbrido entrenado: cola de revisión de ~2% (presupuesto del auditor nocturno) con tipo de inconsistencia, motivo, features explicativas y acción sugerida por transacción.
 
-## Instalación
+## Instalación..
 
 Este proyecto usa `uv`:
 
