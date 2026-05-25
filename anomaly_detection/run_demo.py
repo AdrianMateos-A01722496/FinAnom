@@ -354,39 +354,82 @@ def demo_sintetico() -> None:
     print(f"Resultado guardado: {salida}")
 
 
-def demo_real(max_filas: int = 5_000) -> None:
-    parquet_candidatos = [
-        ROOT / "training_data" / "transacciones_modelado.parquet",
-        ROOT / "data_cleaning" / "output" / "transacciones_limpio.parquet",
-        ROOT / "data_consolidation" / "output" / "transacciones_consolidado.parquet",
-    ]
-    parquet_file = next((p for p in parquet_candidatos if p.exists()), None)
+def _construir_muestra_real(max_filas: int = 5_000, random_state: int = 42) -> pd.DataFrame | None:
+    """
+    Construye un DataFrame analítico desde hottra + hothsp crudos.
+    Deriva t_timestamp y tiene_reservacion igual que el pipeline de consolidación.
+    Devuelve None si los archivos no existen.
+    """
+    tra_path = ROOT / "tablas_parquet" / "hottra.parquet"
+    hsp_path = ROOT / "tablas_parquet" / "hothsp.parquet"
 
-    if parquet_file is None:
-        print("\n[INFO] No se encontró base real. Ejecuta el pipeline primero:")
-        print("       uv run python pipeline/finanom_flow.py")
+    if not tra_path.exists():
+        return None
+
+    tra = pd.read_parquet(tra_path)
+    for c in tra.select_dtypes("object"):
+        tra[c] = tra[c].str.strip()
+
+    # Derivar t_timestamp = fecha + hora + minuto
+    tra["_fecha_dt"] = pd.to_datetime(tra["t_fecha"], format="%Y%m%d", errors="coerce")
+    tra["_hra"]      = tra["t_tra_hra"].fillna("00").str.zfill(2)
+    tra["_mto"]      = tra["t_tra_mto"].fillna("00").str.zfill(2)
+    tra["t_timestamp"] = pd.to_datetime(
+        tra["_fecha_dt"].dt.strftime("%Y-%m-%d") + " " + tra["_hra"] + ":" + tra["_mto"],
+        errors="coerce",
+    )
+    tra["t_cve_res_clean"]  = tra["t_cve_res"].fillna("").str.strip()
+    tra["tiene_reservacion"] = tra["t_cve_res_clean"].ne("")
+
+    # Enriquecer con datos de reservación
+    if hsp_path.exists():
+        hsp = pd.read_parquet(hsp_path)
+        for c in hsp.select_dtypes("object"):
+            hsp[c] = hsp[c].str.strip()
+
+        hsp_cols = [
+            "h_res_cve", "h_fec_lld", "h_fec_sda",
+            "h_num_per", "h_num_noc", "h_tfa", "h_tfa_total",
+            "h_tpo_hab", "h_tpo_hsp", "h_seg_mer",
+        ]
+        hsp_sel = hsp[[c for c in hsp_cols if c in hsp.columns]].copy()
+        for dc in ["h_fec_lld", "h_fec_sda"]:
+            if dc in hsp_sel.columns:
+                hsp_sel[dc] = pd.to_datetime(hsp_sel[dc], format="%Y%m%d", errors="coerce")
+        for nc in ["h_num_per", "h_num_noc", "h_tfa", "h_tfa_total"]:
+            if nc in hsp_sel.columns:
+                hsp_sel[nc] = pd.to_numeric(hsp_sel[nc], errors="coerce")
+
+        df = tra.merge(hsp_sel, left_on="t_cve_res_clean", right_on="h_res_cve", how="left")
+    else:
+        df = tra.copy()
+
+    # Muestra reproducible
+    return df.sample(n=min(max_filas, len(df)), random_state=random_state)
+
+
+def demo_real(max_filas: int = 5_000) -> None:
+    _print_separador(f"DEMO 2 — Base real TSA (muestra de {max_filas:,} filas de hottra + hothsp)")
+
+    df = _construir_muestra_real(max_filas)
+    if df is None:
+        print("\n[INFO] No se encontró tablas_parquet/hottra.parquet.")
+        print("       Coloca los archivos parquet en la carpeta tablas_parquet/ y vuelve a ejecutar.")
         return
 
-    _print_separador(f"DEMO 2 — Base real (muestra de {max_filas:,} filas)")
-    print(f"Archivo: {parquet_file}")
-
-    df_full = pd.read_parquet(parquet_file)
-
-    # Si viene del dataset modelado (trace_* + feat_*), reconstruimos columnas crudas desde trace
-    if "trace_t_folio" in df_full.columns and "t_folio" not in df_full.columns:
-        rename_map = {c: c.replace("trace_", "") for c in df_full.columns if c.startswith("trace_")}
-        df_full = df_full.rename(columns=rename_map)
-
-    df = df_full.sample(n=min(max_filas, len(df_full)), random_state=42)
-    print(f"Filas en muestra: {len(df):,}\n")
+    print(f"Filas en muestra: {len(df):,} | Columnas: {df.shape[1]}")
+    print(f"Cargos (t_carabo=0): {(df['t_carabo']=='0').sum():,} | "
+          f"Abonos (t_carabo=1): {(df['t_carabo']=='1').sum():,}")
+    print(f"Con reservación: {df['tiene_reservacion'].sum():,} | "
+          f"Sin reservación: {(~df['tiene_reservacion']).sum():,}\n")
 
     alertas = detectar_anomalias(df)
     _print_resumen(alertas)
-    _print_alertas_detalle(alertas, max_rows=10)
+    _print_alertas_detalle(alertas, max_rows=20)
 
-    salida = ROOT / "anomaly_detection" / "output_demo_real.csv"
+    salida = ROOT / "anomaly_detection" / "output_alertas_real.csv"
     alertas[alertas["es_anomalia"]].to_csv(salida, index=False, encoding="utf-8")
-    print(f"Solo anomalías guardadas: {salida}")
+    print(f"\nAlertas exportadas: {salida}")
 
 
 if __name__ == "__main__":
