@@ -19,7 +19,7 @@ Cola de revision (rankeada por prioridad):
 
 Calidad evaluada SIN etiquetas: inyeccion sintetica (recall del IF), estabilidad
 temporal y overlap IF/reglas (la evidencia de por que el modelo es hibrido). El bucle de
-feedback del auditor queda DISENADO + stub (ver `apply_feedback`).
+feedback del auditor ("el modelo que aprende") vive en `model_Adrian/feedback.py`.
 
 Uso:
     uv run python model_Adrian/train_model.py
@@ -46,6 +46,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from model_Adrian.feedback import init_label_store  # noqa: E402
 from model_Tony.reglas import detectar_anomalias  # noqa: E402
 from model_Rogelio.train import (  # noqa: E402
     compute_shap,
@@ -409,40 +410,8 @@ def evaluate_overlap(is_if, rules):
     }
 
 
-# --------------------------------------------------------------------------- #
-# Feedback loop (DISENO + STUB)
-# --------------------------------------------------------------------------- #
-FEEDBACK_COLUMNS = ["trace_row_id", "decision", "revisor", "timestamp_revision", "nota"]
-
-
-def write_labels_template(path: Path) -> None:
-    """Crea el almacen de etiquetas del auditor (vacio) si no existe.
-
-    `decision` ∈ {anomalia_confirmada, falso_positivo}. Compatible con el etiquetado
-    manual del dashboard (dashboard/state_manager.py) de Tony.
-    """
-    if not path.exists():
-        pd.DataFrame(columns=FEEDBACK_COLUMNS).to_csv(path, index=False)
-
-
-def apply_feedback(report: pd.DataFrame, labels: pd.DataFrame, threshold: float) -> dict:
-    """STUB del bucle de aprendizaje (diseno listo, no se simula en esta fase).
-
-    AHORA: con etiquetas del auditor mide la precision de las alertas y sugiere mover
-    el umbral. DESPUES (TODO): re-ranker supervisado sobre `feat_*` con las etiquetas
-    acumuladas y reentrenamiento del IF excluyendo falsos positivos confirmados.
-    """
-    if labels is None or labels.empty:
-        return {"estado": "sin_etiquetas", "umbral_actual": threshold,
-                "nota": "Aun no hay revisiones del auditor; el modelo opera con el umbral base."}
-    rev = report.merge(labels[["trace_row_id", "decision"]], on="trace_row_id", how="inner")
-    rev = rev[rev["is_anomaly"]]
-    if rev.empty:
-        return {"estado": "sin_alertas_revisadas", "umbral_actual": threshold}
-    precision = float((rev["decision"] == "anomalia_confirmada").mean())
-    return {"estado": "evaluado", "alertas_revisadas": int(len(rev)),
-            "precision_observada": precision,
-            "sugerencia": "subir umbral" if precision < 0.5 else "mantener/bajar umbral"}
+# El bucle de feedback del auditor ("el modelo que aprende") vive en model_Adrian/feedback.py
+# (esquema de etiquetas, registro/carga, metricas de precision y adaptacion de umbral/pesos).
 
 
 # --------------------------------------------------------------------------- #
@@ -616,10 +585,13 @@ def write_model_card(report, feature_cols, threshold_ss, paths: TrainingPaths) -
         L.append(f"| `{c}` | {d} |")
     L.append("")
 
-    L.append("## 5. Bucle de feedback del auditor\n")
-    L.append("Almacen `output/feedback_labels.csv` (compatible con el etiquetado del dashboard "
-             "de Tony, `dashboard/state_manager.py`). `apply_feedback()` mide precision y sugiere "
-             "umbral; el re-ranker supervisado queda como TODO (diseno listo).\n")
+    L.append("## 5. Bucle de feedback del auditor (el modelo que aprende)\n")
+    L.append("Modulo `model_Adrian/feedback.py`, mecanismo de **adaptacion de umbral/pesos**. "
+             "Almacen `output/feedback_labels.csv` (compatible con el etiquetado del dashboard "
+             "de Tony, `dashboard/state_manager.py`). `feedback_metrics()` mide precision y "
+             "`suggest_threshold()` ajusta el umbral del IF por la precision observada; "
+             "el ajuste de pesos por regla y el enganche en el scoring quedan como TODO "
+             "documentado (`suggest_rule_weight_deltas`, `apply_learned_state`).\n")
 
     L.append("## 6. Limitaciones\n")
     L.append("- No supervisado: calidad validada por inyeccion/overlap, no por etiquetas reales.")
@@ -685,7 +657,7 @@ def run_training(
     marcadas = report[report["is_anomaly"]].sort_values(
         ["severidad", "anomaly_score"], ascending=[True, False])
     marcadas.to_csv(paths.report_csv, index=False)
-    write_labels_template(paths.labels_store_file)
+    init_label_store(paths.labels_store_file)
     write_plots(anomaly_score, ss, threshold_ss, overlap, mean_abs_shap, paths)
 
     import json

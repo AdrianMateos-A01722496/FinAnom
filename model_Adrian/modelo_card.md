@@ -49,9 +49,9 @@ Apoyo al auditor nocturno. Consolida el trabajo de los tres integrantes:
 | `evidencia_shap` | Top features SHAP que aislaron la transaccion (filas del IF). |
 | `requiere_aprobacion` | Siempre True: la correccion exige aprobacion (human-in-the-loop). |
 
-## 5. Bucle de feedback del auditor
+## 5. Bucle de feedback del auditor (el modelo que aprende)
 
-Almacen `output/feedback_labels.csv` (compatible con el etiquetado del dashboard de Tony, `dashboard/state_manager.py`). `apply_feedback()` mide precision y sugiere umbral; el re-ranker supervisado queda como TODO (diseno listo).
+Modulo `model_Adrian/feedback.py`, mecanismo de **adaptacion de umbral/pesos**. Almacen `output/feedback_labels.csv` (compatible con el etiquetado del dashboard de Tony, `dashboard/state_manager.py`). `feedback_metrics()` mide precision y `suggest_threshold()` ajusta el umbral del IF por la precision observada; el ajuste de pesos por regla y el enganche en el scoring quedan como TODO documentado (`suggest_rule_weight_deltas`, `apply_learned_state`).
 
 ## 6. Limitaciones
 
