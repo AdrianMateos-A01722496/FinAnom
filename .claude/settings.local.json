@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(& \"d:\\\\FinAnom_P\\\\FinAnom\\\\.venv\\\\Scripts\\\\python.exe\" -c \"import shap; print\\(shap.__version__\\)\" 2>&1)"
+      "PowerShell(& \"d:\\\\FinAnom_P\\\\FinAnom\\\\.venv\\\\Scripts\\\\python.exe\" -c \"import shap; print\\(shap.__version__\\)\" 2>&1)",
+      "Bash(uv run python -c ' *)",
+      "Bash(mkdir -p model_Rogelio/dashboard/data)",
+      "Bash(python -m http.server 8090)",
+      "Bash(curl -s http://localhost:8090/)",
+      "Bash(curl -s http://localhost:8090/data/anomalies.json)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'Records: {len\\(d\\)}, keys: {list\\(d[0].keys\\(\\)\\)[:6]}'\\)\")",
+      "Bash(uv run *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'Records: {len\\(d\\)}, sample key: {list\\(d[0].keys\\(\\)\\)[:5]}'\\)\")",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":8090\")",
+      "Bash(taskkill /PID 38656 /F)"
     ]
   }
 }
