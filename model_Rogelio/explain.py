@@ -599,11 +599,11 @@ def main() -> None:
 
     # Stats de distribucion
     print("\n[4/4] Resumen de resultados")
-    print(f"\n  Distribucion de severidad:")
+    print("\n  Distribucion de severidad:")
     for sev, cnt in result["severity"].value_counts().items():
         print(f"    {sev:15s}  {cnt:>5,}  ({cnt/len(result)*100:.1f}%)")
 
-    print(f"\n  Categorias mas frecuentes:")
+    print("\n  Categorias mas frecuentes:")
     all_cats: dict[str, int] = {}
     for cats_str in result["categories"]:
         for cat in cats_str.split(" | "):

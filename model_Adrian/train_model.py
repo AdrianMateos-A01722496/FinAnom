@@ -340,7 +340,7 @@ def build_report(trace, anomaly_score, is_if, rules, shap_top, ss):
         else:  # marcada solo por IF, sin regla -> evidencia SHAP
             tipo[i] = "ATIPICO_IF"
             ev = shap_top[i]
-            motivos[i] = (f"Patron atipico detectado por Isolation Forest"
+            motivos[i] = ("Patron atipico detectado por Isolation Forest"
                           + (f" (evidencia: {ev})" if ev else "") + ".")
         aprob[i] = True
 
@@ -453,22 +453,28 @@ def write_plots(anomaly_score, ss, threshold_ss, overlap, mean_abs_shap, paths: 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     axes[0].hist(ss, bins=200, color="steelblue", alpha=0.8)
     axes[0].axvline(threshold_ss, color="crimson", ls="--", label="umbral IF")
-    axes[0].set_title("score_samples — corpus completo"); axes[0].legend()
+    axes[0].set_title("score_samples — corpus completo")
+    axes[0].legend()
     axes[0].set_xlabel("score_samples (menor = mas anomalo)")
     tail = ss[ss <= np.quantile(ss, 0.05)]
     axes[1].hist(tail, bins=120, color="coral", alpha=0.85)
     axes[1].axvline(threshold_ss, color="crimson", ls="--")
     axes[1].set_title("Zoom cola anomala (peor 5%)")
     axes[1].set_xlabel("score_samples")
-    plt.tight_layout(); fig.savefig(paths.score_plot_file, dpi=150); plt.close(fig)
+    plt.tight_layout()
+    fig.savefig(paths.score_plot_file, dpi=150)
+    plt.close(fig)
 
     # 2. Overlap IF vs reglas
     plt.figure(figsize=(7, 4))
     labels = ["solo IF", "interseccion", "solo reglas"]
     vals = [overlap["solo_if"], overlap["interseccion"], overlap["solo_reglas"]]
     plt.bar(labels, vals, color=["#3b6ea8", "#7b5ea8", "#2f6f73"])
-    plt.ylabel("transacciones"); plt.title("Cobertura: Isolation Forest vs reglas")
-    plt.tight_layout(); plt.savefig(paths.overlap_plot_file, dpi=150); plt.close()
+    plt.ylabel("transacciones")
+    plt.title("Cobertura: Isolation Forest vs reglas")
+    plt.tight_layout()
+    plt.savefig(paths.overlap_plot_file, dpi=150)
+    plt.close()
 
     # 3. SHAP top features (Rogelio)
     top = mean_abs_shap.head(15).iloc[::-1]
@@ -477,7 +483,9 @@ def write_plots(anomaly_score, ss, threshold_ss, overlap, mean_abs_shap, paths: 
         plt.barh([feature_label(i.replace("shap_", "")) for i in top.index], top.values, color="steelblue")
         plt.xlabel("|SHAP| medio (filas marcadas por IF)")
         plt.title("Evidencia SHAP — top features")
-        plt.tight_layout(); plt.savefig(paths.shap_plot_file, dpi=150); plt.close()
+        plt.tight_layout()
+        plt.savefig(paths.shap_plot_file, dpi=150)
+        plt.close()
 
 
 # --------------------------------------------------------------------------- #
