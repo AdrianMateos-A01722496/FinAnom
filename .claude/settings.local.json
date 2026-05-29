@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"d:\\\\FinAnom_P\\\\FinAnom\\\\.venv\\\\Scripts\\\\python.exe\" -c \"import shap; print\\(shap.__version__\\)\" 2>&1)"
+    ]
+  }
+}
