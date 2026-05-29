@@ -8,7 +8,7 @@ Dashboard local para visualizar alertas financieras hoteleras detectadas por el 
 
 **Paso 1 — Genera los datos del modelo** (si no existen aún):
 ```bash
-uv run python Tony_anomaly_detection/run_demo.py
+uv run python model_Tony/run_demo.py
 ```
 
 **Paso 2 — Genera la muestra para el dashboard:**

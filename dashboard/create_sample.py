@@ -25,9 +25,9 @@ DASHBD = Path(__file__).resolve().parent
 DATA   = DASHBD / "data"
 
 PATHS: dict[str, Path] = {
-    "operativas": ROOT / "Tony_anomaly_detection" / "output_alertas_operativas.csv",
-    "contexto":   ROOT / "Tony_anomaly_detection" / "output_senales_contexto.csv",
-    "demo":       ROOT / "Tony_anomaly_detection" / "output_demo_sintetico.csv",
+    "operativas": ROOT / "model_Tony" / "output_alertas_operativas.csv",
+    "contexto":   ROOT / "model_Tony" / "output_senales_contexto.csv",
+    "demo":       ROOT / "model_Tony" / "output_demo_sintetico.csv",
 }
 
 MAX_SAMPLE = 1_000

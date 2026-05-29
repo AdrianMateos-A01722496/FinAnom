@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from model_training.train_model import (
+from model_Adrian.train_model import (
     CLEAN_FILE,
     MODEL_CARD_FILE,
     MODELED_FILE,

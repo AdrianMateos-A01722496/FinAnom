@@ -16,6 +16,6 @@ __pycache__/
 data_consolidation/output/
 data_cleaning/output/
 data_modeling/output/
-model_training/output/
+model_Adrian/output/
 training_data/*
 !training_data/README.md

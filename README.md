@@ -42,7 +42,20 @@ Y la fase de **entrenamiento** del modelo, en un flow aparte que parte de `train
 uv run python pipeline/finanom_training_flow.py
 ```
 
-4. **Entrenamiento** (`model_training/`): modelo HÍBRIDO (Isolation Forest no supervisado + reglas de negocio tipadas) que produce un reporte de revisión explicable para el auditor nocturno, su evaluación de calidad (inyección sintética, estabilidad, overlap) y la model card.
+4. **Entrenamiento** (`model_Adrian/`): modelo HÍBRIDO **consolidado** que une el trabajo de los tres integrantes y produce un reporte de revisión explicable para el auditor nocturno, su evaluación (inyección sintética, estabilidad, overlap) y la model card.
+
+### Consolidación del modelo (lo mejor de los 3)
+
+El pipeline de `model_Adrian/train_model.py` reutiliza:
+
+- **Isolation Forest** con **muestreo estratificado** y **umbral adaptativo** — reutilizado de `model_Rogelio/train.py` (Rogelio).
+- **Motor de reglas de negocio** tipadas (8 detectores con catálogos de códigos, scoring y mensajes legibles) — reutilizado de `model_Tony/reglas.py` (Tony).
+- **Regla de método de pago** (Visa↔Amex) — de Adrian.
+- **Explicabilidad SHAP** (TreeExplainer) sobre las filas que marca el IF — reutilizada de `model_Rogelio` (Rogelio).
+
+La cola de revisión = `rule_score≥60` ∪ IF ∪ método_pago (severidad ALTO/CRÍTICO), rankeada por severidad.
+
+Carpetas de cada integrante (preservadas): `model_Rogelio/` (IF + SHAP + findings), `model_Tony/` (reglas + demo) y `dashboard/` (dashboard Streamlit de Tony; fuera del alcance de esta consolidación, pero funcional con `uv run streamlit run dashboard/app.py`).
 
 Los notebooks y diccionarios documentan las decisiones de cada fase. Los archivos en `output/` son artefactos regenerables de cada etapa. Los datasets finales para entrenar modelos viven en `training_data/`.
 
@@ -55,8 +68,8 @@ Los notebooks y diccionarios documentan las decisiones de cada fase. Los archivo
 - `data_consolidation/diccionario_base_consolidada.md`
 - `data_cleaning/diccionario_limpio.md`
 - `data_modeling/diccionario_modelado.md`
-- `model_training/output/reporte_revision.parquet` (cola de revisión explicable)
-- `model_training/output/reporte_evaluacion_modelo.md` y `model_training/modelo_card.md`
+- `model_Adrian/output/reporte_revision.parquet` (cola de revisión explicable)
+- `model_Adrian/output/reporte_evaluacion_modelo.md` y `model_Adrian/modelo_card.md`
 
 ## Estado actual
 
@@ -66,7 +79,7 @@ El pipeline completo genera:
 - 63 features finales para modelado.
 - Matriz `X_modelo.parquet` completamente numérica, sin nulos y sin features constantes.
 - Reportes de calidad e importancias proxy para interpretar qué variables aportan señal.
-- Modelo híbrido entrenado: cola de revisión de ~2% (presupuesto del auditor nocturno) con tipo de inconsistencia, motivo, features explicativas y acción sugerida por transacción.
+- Modelo híbrido consolidado: cola de revisión de ~4% (presupuesto del auditor nocturno) con severidad, tipo de inconsistencia, motivo legible (reglas de Tony) y evidencia SHAP (Rogelio) por transacción.
 
 ## Instalación..
 

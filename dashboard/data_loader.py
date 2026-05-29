@@ -13,9 +13,9 @@ DASHBD = Path(__file__).resolve().parent
 
 # Rutas de archivos de datos (orden de prioridad en load_alertas)
 PATHS: dict[str, Path] = {
-    "operativas":           ROOT   / "Tony_anomaly_detection" / "output_alertas_operativas.csv",
-    "contexto":             ROOT   / "Tony_anomaly_detection" / "output_senales_contexto.csv",
-    "demo":                 ROOT   / "Tony_anomaly_detection" / "output_demo_sintetico.csv",
+    "operativas":           ROOT   / "model_Tony" / "output_alertas_operativas.csv",
+    "contexto":             ROOT   / "model_Tony" / "output_senales_contexto.csv",
+    "demo":                 ROOT   / "model_Tony" / "output_demo_sintetico.csv",
     "sample_alertas":       DASHBD / "data" / "sample_alertas.csv",
     "sample_transacciones": DASHBD / "data" / "sample_transacciones.csv",
 }

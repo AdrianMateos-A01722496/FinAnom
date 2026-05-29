@@ -6,7 +6,7 @@ Ejecuta el detector sobre:
      usando solo una muestra de 5,000 filas para no tardar.
 
 Uso:
-    uv run python Tony_anomaly_detection/run_demo.py
+    uv run python model_Tony/run_demo.py
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from Tony_anomaly_detection.reglas import detectar_anomalias, separar_alertas
+from model_Tony.reglas import detectar_anomalias, separar_alertas
 
 
 # --------------------------------------------------------------------------- #
@@ -359,7 +359,7 @@ def demo_sintetico() -> None:
     _print_resumen(alertas)
     _print_alertas_detalle(alertas)
 
-    salida = ROOT / "Tony_anomaly_detection" / "output_demo_sintetico.csv"
+    salida = ROOT / "model_Tony" / "output_demo_sintetico.csv"
     salida.parent.mkdir(parents=True, exist_ok=True)
     operativas, _ = separar_alertas(alertas)
     operativas.to_csv(salida, index=False, encoding="utf-8")
@@ -440,8 +440,8 @@ def demo_real(max_filas: int = 5_000) -> None:
     _print_alertas_detalle(alertas, max_rows=30)
 
     operativas, contexto = separar_alertas(alertas)
-    salida_op  = ROOT / "Tony_anomaly_detection" / "output_alertas_operativas.csv"
-    salida_ctx = ROOT / "Tony_anomaly_detection" / "output_senales_contexto.csv"
+    salida_op  = ROOT / "model_Tony" / "output_alertas_operativas.csv"
+    salida_ctx = ROOT / "model_Tony" / "output_senales_contexto.csv"
     operativas.to_csv(salida_op,  index=False, encoding="utf-8")
     contexto.to_csv(salida_ctx,   index=False, encoding="utf-8")
     print(f"\nAlertas operativas exportadas : {salida_op}")
