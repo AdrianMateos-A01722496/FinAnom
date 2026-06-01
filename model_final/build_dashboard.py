@@ -1,6 +1,6 @@
 """Genera los datos del dashboard desde el modelo consolidado + lo aprendido.
 
-Lee el reporte de `model_Adrian`, aplica el estado aprendido (si existe) y escribe
+Lee el reporte local de `model_final/output`, aplica el estado aprendido (si existe) y escribe
 `model_final/dashboard/data/anomalies.json` (top-N de la cola de revision).
 
 Uso:

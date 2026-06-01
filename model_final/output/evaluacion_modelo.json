@@ -1,0 +1,36 @@
+{
+  "rows": 1145526,
+  "flagged": 47087,
+  "flagged_pct": 0.04110513423527707,
+  "threshold_score_samples": -0.5838147071972737,
+  "if_flagged": 14692,
+  "rule_operativa": 232558,
+  "injection_recall": {
+    "monto_inflado": 0.0,
+    "duplicado_extremo": 0.0,
+    "cargo_fuera_estancia": 0.0,
+    "modificacion": 0.0,
+    "promedio": 0.0
+  },
+  "stability": {
+    "entrenamiento": {
+      "p50": -0.45407384157070296,
+      "p05": -0.5445875307286947,
+      "p01": -0.5892436108207951,
+      "tasa_marcado": 0.013045214681349762
+    },
+    "reciente": {
+      "p50": -0.4564658334680287,
+      "p05": -0.5432526910623854,
+      "p01": -0.5871997487303844,
+      "tasa_marcado": 0.011946852438694358
+    }
+  },
+  "overlap": {
+    "if_flagged": 14692,
+    "reglas_operativas": 232558,
+    "interseccion": 11004,
+    "solo_reglas": 221554,
+    "solo_if": 3688
+  }
+}

@@ -19,5 +19,3 @@ data_modeling/output/
 model_Adrian/output/
 training_data/*
 !training_data/README.md
-model_final/output/
-model_final/dashboard/data/anomalies.json

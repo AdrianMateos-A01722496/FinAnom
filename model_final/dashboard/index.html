@@ -61,10 +61,15 @@
     </nav>
 
     <div class="flex items-center gap-3">
-      <button onclick="exportarRevisiones()"
+      <button id="btn-apply-corrections" onclick="aplicarCorrecciones()"
         class="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">
-        ⬇ Exportar revisiones
+        Aplicar correcciones
       </button>
+      <button onclick="exportarRevisiones()"
+        class="text-xs font-semibold border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg transition-colors">
+        Exportar CSV
+      </button>
+      <span id="apply-status" class="text-xs text-slate-400 hidden md:inline"></span>
       <div id="date-display" class="text-xs text-slate-400 hidden md:block"></div>
     </div>
   </div>
@@ -166,6 +171,32 @@ function estadoBadge(e) {
 }
 function getTx(id) {
   return DATA.find(d => String(d.trace_t_transaccion) === String(id));
+}
+function collectReviewedRows() {
+  const rows = [];
+  DATA.forEach(tx => {
+    const st = STATES[tx.trace_t_transaccion];
+    if (st && st.estado && st.estado !== 'Pendiente') {
+      rows.push({
+        trace_row_id: tx.trace_row_id,
+        trace_t_transaccion: tx.trace_t_transaccion,
+        estado: st.estado,
+        nota: st.nota || '',
+      });
+    }
+  });
+  return rows;
+}
+async function loadAnomalies() {
+  try {
+    const res = await fetch('/api/anomalies');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch {
+    const res = await fetch('data/anomalies.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -793,18 +824,16 @@ function renderStats() {
 // EXPORTAR REVISIONES (feedback para el modelo que aprende)
 // ════════════════════════════════════════════════════════════════════════════
 function exportarRevisiones() {
-  const rows = [['trace_row_id', 'trace_t_transaccion', 'estado', 'nota']];
-  DATA.forEach(tx => {
-    const st = STATES[tx.trace_t_transaccion];
-    if (st && st.estado && st.estado !== 'Pendiente') {
-      const nota = (st.nota || '').replace(/[\r\n,]/g, ' ');
-      rows.push([tx.trace_row_id, tx.trace_t_transaccion, st.estado, nota]);
-    }
-  });
-  if (rows.length === 1) {
+  const reviewed = collectReviewedRows();
+  if (reviewed.length === 0) {
     alert('No hay revisiones para exportar.\nMarca alertas como Autorizado / Desestimado / Escalado primero.');
     return;
   }
+  const rows = [['trace_row_id', 'trace_t_transaccion', 'estado', 'nota']];
+  reviewed.forEach(r => {
+    const nota = (r.nota || '').replace(/[\r\n,]/g, ' ');
+    rows.push([r.trace_row_id, r.trace_t_transaccion, r.estado, nota]);
+  });
   const csv = rows.map(r => r.join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
@@ -812,6 +841,55 @@ function exportarRevisiones() {
   a.download = 'revisiones.csv';
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+async function aplicarCorrecciones() {
+  const reviewed = collectReviewedRows();
+  if (reviewed.length === 0) {
+    alert('No hay correcciones para aplicar.\nMarca alertas como Autorizado / Desestimado / Escalado primero.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-apply-corrections');
+  const status = document.getElementById('apply-status');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Aplicando...';
+  btn.classList.add('opacity-60', 'cursor-wait');
+  status.textContent = `${reviewed.length} revisión(es)`;
+  status.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/api/apply-corrections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviews: reviewed }),
+    });
+    const result = await res.json();
+    if (!res.ok || !result.applied) throw new Error(result.message || `HTTP ${res.status}`);
+
+    reviewed.forEach(r => { delete STATES[r.trace_t_transaccion]; });
+    saveStates();
+    DATA = await loadAnomalies();
+    document.getElementById('badge-total').textContent = DATA.length;
+    status.textContent = `Cola ${result.queue_before.toLocaleString('es-MX')} → ${result.queue_after.toLocaleString('es-MX')}`;
+    setView(currentView);
+    alert(
+      `Correcciones aplicadas.\n` +
+      `Revisiones usadas: ${result.labels_used}\n` +
+      `Cola: ${result.queue_before.toLocaleString('es-MX')} → ${result.queue_after.toLocaleString('es-MX')}\n` +
+      `Motivo: ${result.threshold_reason}`
+    );
+  } catch (e) {
+    alert(
+      `No se pudieron aplicar automaticamente.\n\n${e.message}\n\n` +
+      `Asegurate de abrir el dashboard con:\nuv run python model_final/app.py`
+    );
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+    btn.classList.remove('opacity-60', 'cursor-wait');
+  }
 }
 
 async function init() {
@@ -830,24 +908,21 @@ async function init() {
     </div>`;
 
   try {
-    const res = await fetch('data/anomalies.json');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    DATA = await res.json();
+    DATA = await loadAnomalies();
   } catch (e) {
     document.getElementById('view-dashboard').innerHTML = `
       <div class="bg-red-50 border border-red-200 rounded-xl p-8 text-center fade-in">
         <p class="text-lg font-semibold text-red-700 mb-2">No se pudieron cargar los datos</p>
         <p class="text-sm text-red-500 mb-4">
-          El dashboard requiere un servidor HTTP local para leer el archivo <code>data/anomalies.json</code>.
+          El dashboard requiere el servidor Flask local para leer datos y aplicar correcciones.
         </p>
         <div class="bg-white border border-red-100 rounded-lg px-4 py-3 text-left inline-block">
           <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Ejecuta esto en la terminal:</p>
           <code class="text-sm text-slate-800 font-mono">
-            cd model_final/dashboard<br>
-            python -m http.server 8080
+            uv run python model_final/app.py
           </code>
         </div>
-        <p class="text-xs text-red-400 mt-3">Luego abre: <strong>http://localhost:8080</strong></p>
+        <p class="text-xs text-red-400 mt-3">Luego abre: <strong>http://127.0.0.1:5000</strong></p>
       </div>`;
     return;
   }

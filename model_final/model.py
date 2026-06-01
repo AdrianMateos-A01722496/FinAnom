@@ -1,10 +1,10 @@
 """Modelo FINAL FINANOM — consolidado + aprendizaje, y datos para el dashboard.
 
-Reutiliza el reporte del modelo consolidado (`model_Adrian/output/reporte_revision.parquet`)
+Reutiliza el reporte del modelo consolidado local (`model_final/output/reporte_revision.parquet`)
 y APLICA el estado aprendido por el feedback del auditor (umbral del IF + factor de confianza
 por regla) para regenerar la cola, SIN reentrenar el IF (adaptacion instantanea).
 
-Convencion de severidad (espejo de `model_Adrian/train_model.severidad`, reimplementada aqui
+Convencion de severidad (espejo de `model_final/train_model.severidad`, reimplementada aqui
 para no arrastrar imports pesados de SHAP/IF en un script que solo re-umbraliza):
     CRITICO  si rule_score>=90, o (IF y rule_score>=50), o metodo_pago
     ALTO     si rule_score>=60, o marcada por el IF
@@ -24,12 +24,14 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-BASE_REPORT = ROOT / "model_Adrian" / "output" / "reporte_revision.parquet"
-BASE_EVAL = ROOT / "model_Adrian" / "output" / "evaluacion_modelo.json"
-CLEAN_FILE = ROOT / "data_cleaning" / "output" / "transacciones_limpio.parquet"
-STATE_FILE = Path(__file__).resolve().parent / "output" / "feedback_state.json"
-DASHBOARD_DATA = Path(__file__).resolve().parent / "dashboard" / "data" / "anomalies.json"
+HERE = Path(__file__).resolve().parent
+BASE_REPORT = HERE / "output" / "reporte_revision.parquet"
+BASE_EVAL = HERE / "output" / "evaluacion_modelo.json"
+CLEAN_FILE = HERE / "data" / "transacciones_limpio.parquet"
+STATE_FILE = HERE / "output" / "feedback_state.json"
+DASHBOARD_DATA = HERE / "dashboard" / "data" / "anomalies.json"
 DASHBOARD_TOP_N = 300
+DUPLICADO_SCORE = 40
 
 # Cluster de regla -> categoria legible (nombres que el dashboard reconoce para iconos).
 CLUSTER_CAT = {
@@ -47,7 +49,7 @@ CLUSTER_TEXTO = {
     "MONTO_ATIPICO": "El monto se desvia del rango tipico para este concepto",
     "CANCELACION_SOSPECHOSA": "La cancelacion o reposteo tiene caracteristicas atipicas",
     "FUERA_DE_ESTANCIA": "El cargo cae fuera de la ventana de estancia de la reserva",
-    "DUPLICADO": "Se repite un cargo identico (mismo folio, codigo, monto y dia)",
+    "DUPLICADO": "Se repite un cargo identico en el mismo minuto",
     "CONTEXTO_RESERVACION": "El cargo no cuadra con el contexto de la reserva enlazada",
     "SIGNO_CONTABLE": "El signo del monto es inesperado para el tipo de movimiento",
     "METODO_PAGO": "El metodo de pago del cargo no coincide con el de la reserva (Amex vs tarjeta generica)",
@@ -64,7 +66,7 @@ def load_base_report() -> pd.DataFrame:
     if not BASE_REPORT.exists():
         raise FileNotFoundError(
             f"No existe {BASE_REPORT}.\nGenera primero el modelo consolidado:\n"
-            "  uv run python model_Adrian/train_model.py")
+            "  uv run python model_final/train_model.py")
     return pd.read_parquet(BASE_REPORT)
 
 
@@ -85,6 +87,70 @@ def _clusters(tipo: str) -> list[str]:
     return [c for c in str(tipo).split(" | ") if c and c != "ATIPICO_IF"]
 
 
+def _replace_clusters(tipo: str, clusters: list[str]) -> str:
+    keep = set(clusters)
+    return " | ".join(c for c in str(tipo).split(" | ") if c and c in keep)
+
+
+def _duplicate_evidence() -> pd.Series | None:
+    """Marca duplicados de alta confianza: mismo minuto con subfolio y naturaleza contable.
+
+    El duplicado por dia tiene mucho recall, pero mezcla errores reales con cargos legitimos
+    repetidos. Esta evidencia endurece la regla sin reentrenar el reporte ya generado.
+    """
+    cols = [
+        "t_folio", "t_folio_ext", "t_cuarto", "t_codigo", "t_carabo", "t_monto", "t_timestamp",
+    ]
+    if not CLEAN_FILE.exists():
+        return None
+    clean = pd.read_parquet(CLEAN_FILE, columns=cols)
+    monto = pd.to_numeric(clean["t_monto"], errors="coerce").fillna(0.0)
+    ts = pd.to_datetime(clean["t_timestamp"], errors="coerce")
+
+    work = pd.DataFrame({
+        "folio": clean["t_folio"].astype("string").fillna("__NA__"),
+        "folio_ext": clean["t_folio_ext"].astype("string").fillna("__NA__"),
+        "codigo": clean["t_codigo"].astype("string").str.strip().fillna("__NA__"),
+        "carabo": clean["t_carabo"].astype("string").str.strip().fillna("__NA__"),
+        "cuarto": clean["t_cuarto"].astype("string").fillna("__NA__"),
+        "monto_c": np.rint(monto * 100).astype("int64"),
+        "minuto": ts.dt.floor("min"),
+    }, index=clean.index)
+
+    key = ["folio", "folio_ext", "cuarto", "codigo", "carabo", "monto_c", "minuto"]
+    dup_min = work.groupby(key, dropna=False)["codigo"].transform("size") > 1
+    return dup_min.rename("dup_alta_confianza")
+
+
+def _degrade_low_confidence_duplicates(out: pd.DataFrame) -> tuple[np.ndarray, pd.Series]:
+    """Quita puntaje/categoria DUPLICADO cuando solo hay coincidencia por dia."""
+    has_dup = out["tipo_inconsistencia"].str.contains("DUPLICADO", na=False)
+    if not has_dup.any():
+        return out["rule_score"].to_numpy(), pd.Series(False, index=out.index)
+
+    evidence = _duplicate_evidence()
+    if evidence is None:
+        return out["rule_score"].to_numpy(), pd.Series(False, index=out.index)
+
+    row_ids = out["trace_row_id"].astype(int)
+    hard_dup = pd.Series(evidence.reindex(row_ids).fillna(False).to_numpy(), index=out.index)
+    weak_dup = has_dup & ~hard_dup
+    if not weak_dup.any():
+        return out["rule_score"].to_numpy(), hard_dup
+
+    out.loc[weak_dup, "tipo_inconsistencia"] = out.loc[weak_dup, "tipo_inconsistencia"].map(
+        lambda t: _replace_clusters(t, [c for c in _clusters(t) if c != "DUPLICADO"])
+    )
+    out.loc[weak_dup, "motivos"] = out.loc[weak_dup, "motivos"].str.replace(
+        r"(?:^|; )duplicado_exacto:[^;]*(?:; )?",
+        "",
+        regex=True,
+    ).str.strip(" ;")
+    adjusted = out["rule_score"].to_numpy().astype(float)
+    adjusted[weak_dup.to_numpy()] = np.maximum(0.0, adjusted[weak_dup.to_numpy()] - DUPLICADO_SCORE)
+    return adjusted, hard_dup
+
+
 def _severidad(rule_score: np.ndarray, is_if: np.ndarray, metodo_pago: np.ndarray) -> np.ndarray:
     sev = np.full(len(rule_score), "BAJO", dtype=object)
     sev[rule_score > 0] = "MEDIO"
@@ -102,6 +168,7 @@ def compute_queue(report: pd.DataFrame, state: dict | None) -> pd.DataFrame:
     out = report.copy()
     weights = (state or {}).get("rule_weights", {})
     threshold = (state or {}).get("threshold_score_samples")
+    base_rule_score, hard_dup = _degrade_low_confidence_duplicates(out)
 
     # IF: si hay umbral aprendido, re-marcar; si no, usar la marca base.
     is_if = (out["score_samples"].to_numpy() <= threshold) if threshold is not None \
@@ -114,12 +181,13 @@ def compute_queue(report: pd.DataFrame, state: dict | None) -> pd.DataFrame:
             lambda t: min([weights.get(c, 1.0) for c in _clusters(t)], default=1.0)).to_numpy()
     else:
         factor = np.ones(len(out))
-    eff_rule = out["rule_score"].to_numpy() * factor
+    eff_rule = base_rule_score * factor
 
     metodo_pago = out["tipo_inconsistencia"].str.contains("METODO_PAGO", na=False).to_numpy()
     sev = _severidad(eff_rule, is_if, metodo_pago)
 
     out["is_anomaly_if"] = is_if
+    out["dup_alta_confianza"] = hard_dup.to_numpy()
     out["rule_score_eff"] = np.round(eff_rule, 1)
     out["severidad"] = sev
     out["is_anomaly"] = np.isin(sev, ["ALTO", "CRITICO"])
