@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FINANOM — Sistema de Auditoría</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; }
+    .tab-active   { color: #2563eb; border-bottom: 2px solid #2563eb; font-weight: 600; }
+    .tab-inactive { color: #64748b; border-bottom: 2px solid transparent; }
+    .tab-inactive:hover { color: #334155; }
+    #modal-overlay { display: none; }
+    #modal-overlay.open { display: flex; }
+    tr.clickable:hover td { background: #f0f9ff !important; cursor: pointer; }
+    .fade-in { animation: fadeIn 0.18s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .shap-fill { transition: width 0.45s ease; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .badge-alta        { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .badge-media       { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .badge-informativa { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .badge-pendiente   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .badge-autorizado  { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-desestimado { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+    .badge-escalado    { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .sev-dot-alta        { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; display: inline-block; }
+    .sev-dot-media       { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; display: inline-block; }
+    .sev-dot-informativa { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; display: inline-block; }
+    code { font-family: 'Menlo', 'Consolas', monospace; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }
+    textarea:focus, input:focus, select:focus { outline: 2px solid #3b82f6; outline-offset: 1px; }
+    .action-btn-active { ring: 2px; ring-offset: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+  <div class="max-w-7xl mx-auto px-5 flex items-center justify-between h-14">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
+        <span class="text-white text-xs font-bold">F</span>
+      </div>
+      <span class="font-bold text-slate-800 text-base">FINANOM</span>
+      <span class="text-slate-300">·</span>
+      <span class="text-slate-500 text-sm">Hotel Demo</span>
+      <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">PROTOTIPO</span>
+    </div>
+
+    <nav class="flex gap-1">
+      <button id="tab-dashboard" onclick="setView('dashboard')"
+        class="tab-active px-4 py-4 text-sm transition-colors">Dashboard</button>
+      <button id="tab-lista" onclick="setView('lista')"
+        class="tab-inactive px-4 py-4 text-sm transition-colors">
+        Anomalías <span id="badge-total" class="ml-1 bg-slate-100 text-slate-500 text-xs px-1.5 py-0.5 rounded-full">–</span>
+      </button>
+      <button id="tab-stats" onclick="setView('stats')"
+        class="tab-inactive px-4 py-4 text-sm transition-colors">Estadísticas</button>
+    </nav>
+
+    <div class="flex items-center gap-3">
+      <button onclick="exportarRevisiones()"
+        class="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">
+        ⬇ Exportar revisiones
+      </button>
+      <div id="date-display" class="text-xs text-slate-400 hidden md:block"></div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ MAIN ════════════════════════════════════════════════════════════════ -->
+<main class="max-w-7xl mx-auto px-5 py-6">
+  <div id="view-dashboard"></div>
+  <div id="view-lista"    class="hidden"></div>
+  <div id="view-stats"    class="hidden"></div>
+</main>
+
+<!-- ═══ MODAL ═══════════════════════════════════════════════════════════════ -->
+<div id="modal-overlay"
+     class="fixed inset-0 z-50 bg-black/50 items-start justify-center p-4 pt-10 overflow-y-auto"
+     onclick="if(event.target===this)closeModal()">
+  <div id="modal-box" class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mb-10 fade-in">
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════════
+let DATA       = [];
+let STATES     = JSON.parse(localStorage.getItem('finanom_states') || '{}');  // trace_t_transaccion → { estado, nota }
+function saveStates() { localStorage.setItem('finanom_states', JSON.stringify(STATES)); }
+let currentView = 'dashboard';
+let selectedTx  = null;
+let filters     = { severity: '', estado: '', search: '' };
+let listPage    = 1;
+const PAGE_SIZE = 25;
+let chartSev = null, chartCat = null, chartHr = null;
+
+// ════════════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════════════════════════════════
+const CAT_ICONS = {
+  'Posible duplicado':              '🔁',
+  'Monto atipico':                  '💰',
+  'Cargo vs tarifa':                '💰',
+  'Fuera de estancia':              '📅',
+  'Horario inusual':                '🌙',
+  'Proporcion fiscal atipica':      '📊',
+  'Inconsistencia de signo':        '↔️',
+  'Metodo de pago':                 '💳',
+  'Egreso sospechoso':              '🏦',
+  'Patron atipico (modelo)':        '🤖',
+  'Modificacion sospechosa':        '✏️',
+  'Alta densidad de cargos':        '📦',
+  'Cancelacion irregular':          '🚫',
+  'Inconsistencia de reservacion':  '📋',
+  'Sin reservacion enlazada':       '🔗',
+  'Codigo infrecuente':             '❓',
+  'Usuario con baja actividad':     '👤',
+  'Division de cuenta':             '✂️',
+  'Observacion relevante':          '💬',
+};
+
+const catIcon = c => CAT_ICONS[c] ?? '⚠️';
+
+// ════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════════════════
+function getState(tx) {
+  return STATES[tx.trace_t_transaccion]?.estado ?? tx.estado;
+}
+function getNota(tx) {
+  return STATES[tx.trace_t_transaccion]?.nota ?? '';
+}
+function fmt(n) {
+  const v = Number(n);
+  return '$' + (isNaN(v) ? '–' : v.toLocaleString('es-MX', { maximumFractionDigits: 0 }));
+}
+function fmtDate(s) {
+  if (!s || s === 'None') return '–';
+  try {
+    const d = new Date(String(s).replace(' ', 'T'));
+    return d.toLocaleString('es-MX', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return String(s); }
+}
+function sevBadge(sev) {
+  const cls = { Alta: 'badge-alta', Media: 'badge-media', Informativa: 'badge-informativa' };
+  const dot = { Alta: 'sev-dot-alta', Media: 'sev-dot-media', Informativa: 'sev-dot-informativa' };
+  return `<span class="badge ${cls[sev] ?? 'badge-desestimado'}"><span class="${dot[sev] ?? ''}"></span>${sev}</span>`;
+}
+function estadoBadge(e) {
+  const cls = {
+    Pendiente:   'badge-pendiente',
+    Autorizado:  'badge-autorizado',
+    Desestimado: 'badge-desestimado',
+    Escalado:    'badge-escalado',
+  };
+  return `<span class="badge ${cls[e] ?? 'badge-desestimado'}">${e}</span>`;
+}
+function getTx(id) {
+  return DATA.find(d => String(d.trace_t_transaccion) === String(id));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// VIEW SWITCHING
+// ════════════════════════════════════════════════════════════════════════════
+function setView(v) {
+  currentView = v;
+  ['dashboard', 'lista', 'stats'].forEach(name => {
+    document.getElementById(`view-${name}`).classList.toggle('hidden', name !== v);
+    const tab = document.getElementById(`tab-${name}`);
+    if (tab) tab.className = (name === v ? 'tab-active' : 'tab-inactive') +
+      ' px-4 py-4 text-sm transition-colors';
+  });
+  if (v === 'dashboard') renderDashboard();
+  if (v === 'lista')     { listPage = 1; renderLista(); }
+  if (v === 'stats')     renderStats();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DASHBOARD TAB
+// ════════════════════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const total      = DATA.length;
+  const pendientes = DATA.filter(d => getState(d) === 'Pendiente').length;
+  const revisadas  = DATA.filter(d => ['Autorizado','Desestimado'].includes(getState(d))).length;
+  const escaladas  = DATA.filter(d => getState(d) === 'Escalado').length;
+
+  const alertas = DATA
+    .filter(d => d.severity === 'Alta' && getState(d) === 'Pendiente')
+    .sort((a, b) => a.anomaly_rank - b.anomaly_rank)
+    .slice(0, 5);
+
+  const cola = DATA
+    .filter(d => getState(d) === 'Pendiente')
+    .sort((a, b) => a.anomaly_rank - b.anomaly_rank)
+    .slice(0, 10);
+
+  document.getElementById('view-dashboard').innerHTML = `
+<div class="fade-in space-y-5">
+
+  <!-- KPI cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    ${kpiCard('Total detectadas', total,      'text-slate-800', '#dbeafe', '📊')}
+    ${kpiCard('Pendientes',        pendientes, 'text-blue-700',  '#eff6ff', '⏳')}
+    ${kpiCard('Revisadas',         revisadas,  'text-green-700', '#f0fdf4', '✅')}
+    ${kpiCard('Escaladas',         escaladas,  'text-orange-600','#fff7ed', '↑')}
+  </div>
+
+  <!-- Alertas urgentes -->
+  <div class="bg-white rounded-xl border border-red-100 overflow-hidden shadow-sm">
+    <div class="flex items-center gap-2 px-5 py-3 bg-red-50 border-b border-red-100">
+      <span class="text-red-500 text-base">⚠</span>
+      <span class="text-sm font-semibold text-red-700">ALERTAS — ALTA PRIORIDAD PENDIENTES</span>
+      <span class="ml-auto text-xs font-medium text-red-500 bg-red-100 px-2 py-0.5 rounded-full">
+        ${alertas.length} sin revisar
+      </span>
+    </div>
+    <div class="divide-y divide-slate-50">
+      ${alertas.length === 0
+        ? '<p class="text-sm text-slate-400 italic px-5 py-4">Sin alertas de alta prioridad pendientes.</p>'
+        : alertas.map(alertaCard).join('')}
+    </div>
+  </div>
+
+  <!-- Cola de revisión -->
+  <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+    <div class="flex items-center gap-2 px-5 py-3 border-b border-slate-100">
+      <span class="text-sm font-semibold text-slate-700">📋 COLA DE REVISIÓN</span>
+      <span class="text-xs text-slate-400">primeras 10 por prioridad</span>
+      <button onclick="setView('lista')"
+        class="ml-auto text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium">
+        Ver todas →
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-slate-50 text-left text-xs text-slate-400 uppercase tracking-wide">
+            <th class="px-4 py-2.5">Rango</th>
+            <th class="px-4 py-2.5">Folio</th>
+            <th class="px-4 py-2.5">Cuarto</th>
+            <th class="px-4 py-2.5">Concepto</th>
+            <th class="px-4 py-2.5 text-right">Monto</th>
+            <th class="px-4 py-2.5">Severidad</th>
+            <th class="px-4 py-2.5">Categorías principales</th>
+            <th class="px-4 py-2.5"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          ${cola.map(tx => `
+          <tr class="clickable" onclick="openModal('${tx.trace_t_transaccion}')">
+            <td class="px-4 py-2.5 text-xs font-mono text-slate-400">#${tx.anomaly_rank}</td>
+            <td class="px-4 py-2.5 font-semibold text-slate-800">${tx.trace_t_folio}</td>
+            <td class="px-4 py-2.5 text-slate-600 text-xs">${tx.trace_t_cuarto ?? '–'}</td>
+            <td class="px-4 py-2.5"><code>${tx.trace_t_codigo}</code></td>
+            <td class="px-4 py-2.5 text-right font-semibold text-slate-800">${fmt(tx.monto)}</td>
+            <td class="px-4 py-2.5">${sevBadge(tx.severity)}</td>
+            <td class="px-4 py-2.5 text-xs text-slate-500 max-w-xs">
+              ${tx.categories.split(' | ').slice(0, 2).map(c => catIcon(c) + ' ' + c).join('  ·  ')}
+            </td>
+            <td class="px-4 py-2.5 text-right">
+              <span class="text-xs text-blue-600 font-medium">Revisar →</span>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>`;
+}
+
+function kpiCard(label, value, textColor, bgColor, icon) {
+  return `
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+    <div class="flex items-start justify-between">
+      <div>
+        <p class="text-xs text-slate-400 uppercase tracking-wide font-medium mb-1.5">${label}</p>
+        <p class="text-3xl font-bold ${textColor}">${value}</p>
+      </div>
+      <span class="text-2xl p-2 rounded-lg" style="background:${bgColor}">${icon}</span>
+    </div>
+  </div>`;
+}
+
+function alertaCard(tx) {
+  const cats = tx.categories.split(' | ');
+  return `
+  <div class="flex items-start gap-4 px-5 py-4 hover:bg-slate-50 cursor-pointer transition-colors"
+       onclick="openModal('${tx.trace_t_transaccion}')">
+    <span class="text-2xl flex-shrink-0 mt-0.5">${catIcon(cats[0])}</span>
+    <div class="flex-1 min-w-0">
+      <div class="flex flex-wrap items-center gap-2 mb-1">
+        <span class="font-semibold text-slate-800 text-sm">Folio ${tx.trace_t_folio}</span>
+        <code>${tx.trace_t_codigo}</code>
+        <span class="font-bold text-slate-900">${fmt(tx.monto)}</span>
+        <span class="text-xs text-slate-400">${fmtDate(tx.trace_t_timestamp)}</span>
+      </div>
+      <p class="text-sm text-slate-600 leading-snug">${tx.explanation}</p>
+    </div>
+    <button onclick="event.stopPropagation(); openModal('${tx.trace_t_transaccion}')"
+      class="flex-shrink-0 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+      Revisar
+    </button>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LISTA TAB
+// ════════════════════════════════════════════════════════════════════════════
+function renderLista() {
+  const filtered = DATA.filter(d => {
+    if (filters.severity && d.severity !== filters.severity) return false;
+    if (filters.estado   && getState(d) !== filters.estado)  return false;
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!String(d.trace_t_folio).includes(q) &&
+          !String(d.trace_t_codigo).toLowerCase().includes(q) &&
+          !String(d.trace_t_cuarto ?? '').includes(q)) return false;
+    }
+    return true;
+  }).sort((a, b) => a.anomaly_rank - b.anomaly_rank);
+
+  const total      = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (listPage > totalPages) listPage = totalPages;
+  const pageData = filtered.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
+  const hasFilters = filters.severity || filters.estado || filters.search;
+
+  document.getElementById('view-lista').innerHTML = `
+<div class="fade-in space-y-4">
+
+  <!-- Filter bar -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex flex-wrap gap-3 items-center">
+    <div class="relative">
+      <span class="absolute left-2.5 top-2 text-slate-400 text-sm">🔍</span>
+      <input type="text" placeholder="Folio, concepto, cuarto..."
+        value="${filters.search.replace(/"/g,'&quot;')}"
+        oninput="filters.search=this.value; listPage=1; renderLista()"
+        class="border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm w-60">
+    </div>
+    <select onchange="filters.severity=this.value; listPage=1; renderLista()"
+      class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white">
+      <option value="" ${!filters.severity?'selected':''}>Todas las severidades</option>
+      <option value="Alta"        ${filters.severity==='Alta'?'selected':''}>🔴 Alta</option>
+      <option value="Media"       ${filters.severity==='Media'?'selected':''}>🟡 Media</option>
+      <option value="Informativa" ${filters.severity==='Informativa'?'selected':''}>🟢 Informativa</option>
+    </select>
+    <select onchange="filters.estado=this.value; listPage=1; renderLista()"
+      class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white">
+      <option value=""            ${!filters.estado?'selected':''}>Todos los estados</option>
+      <option value="Pendiente"   ${filters.estado==='Pendiente'?'selected':''}>Pendiente</option>
+      <option value="Autorizado"  ${filters.estado==='Autorizado'?'selected':''}>Autorizado</option>
+      <option value="Desestimado" ${filters.estado==='Desestimado'?'selected':''}>Desestimado</option>
+      <option value="Escalado"    ${filters.estado==='Escalado'?'selected':''}>Escalado</option>
+    </select>
+    ${hasFilters ? `<button onclick="filters={severity:'',estado:'',search:''}; listPage=1; renderLista()"
+      class="text-xs text-slate-500 hover:text-slate-700 underline">✕ Limpiar</button>` : ''}
+    <span class="ml-auto text-xs text-slate-400 font-medium">${total.toLocaleString('es-MX')} resultado${total!==1?'s':''}</span>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-slate-50 text-left text-xs text-slate-400 uppercase tracking-wide border-b border-slate-200">
+            <th class="px-4 py-3">Rango</th>
+            <th class="px-4 py-3">Folio</th>
+            <th class="px-4 py-3">Cuarto</th>
+            <th class="px-4 py-3">Concepto</th>
+            <th class="px-4 py-3 text-right">Monto</th>
+            <th class="px-4 py-3">Fecha</th>
+            <th class="px-4 py-3">Categorías detectadas</th>
+            <th class="px-4 py-3">Severidad</th>
+            <th class="px-4 py-3">Estado</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${pageData.length === 0
+            ? `<tr><td colspan="10" class="text-center py-12 text-slate-400">
+                Sin resultados. <button onclick="filters={severity:'',estado:'',search:''}; listPage=1; renderLista()"
+                  class="underline text-blue-500">Limpiar filtros</button>
+               </td></tr>`
+            : pageData.map(listaRow).join('')}
+        </tbody>
+      </table>
+    </div>
+    <!-- Pagination -->
+    <div class="border-t border-slate-100 px-5 py-3 flex items-center justify-between">
+      <span class="text-xs text-slate-400">Página ${listPage} de ${totalPages}</span>
+      <div class="flex gap-2">
+        <button onclick="if(listPage>1){listPage--;renderLista()}" ${listPage<=1?'disabled':''}
+          class="text-xs px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-default transition-colors">
+          ← Anterior
+        </button>
+        <button onclick="if(listPage<${totalPages}){listPage++;renderLista()}" ${listPage>=totalPages?'disabled':''}
+          class="text-xs px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-default transition-colors">
+          Siguiente →
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>`;
+}
+
+function listaRow(tx) {
+  const estado = getState(tx);
+  const allCats = tx.categories.split(' | ');
+  const shown   = allCats.slice(0, 2);
+  const extra   = allCats.length - shown.length;
+  return `
+  <tr class="clickable" onclick="openModal('${tx.trace_t_transaccion}')">
+    <td class="px-4 py-3 text-xs font-mono text-slate-400">#${tx.anomaly_rank}</td>
+    <td class="px-4 py-3 font-semibold text-slate-800">${tx.trace_t_folio}</td>
+    <td class="px-4 py-3 text-slate-500 text-xs">${tx.trace_t_cuarto ?? '–'}</td>
+    <td class="px-4 py-3"><code>${tx.trace_t_codigo}</code></td>
+    <td class="px-4 py-3 text-right font-semibold text-slate-800">${fmt(tx.monto)}</td>
+    <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">${fmtDate(tx.trace_t_timestamp)}</td>
+    <td class="px-4 py-3">
+      <div class="flex flex-wrap gap-1">
+        ${shown.map(c => `
+          <span class="text-xs border border-slate-200 bg-slate-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+            ${catIcon(c)} ${c}
+          </span>`).join('')}
+        ${extra > 0 ? `<span class="text-xs text-slate-400 self-center">+${extra}</span>` : ''}
+      </div>
+    </td>
+    <td class="px-4 py-3">${sevBadge(tx.severity)}</td>
+    <td class="px-4 py-3">${estadoBadge(estado)}</td>
+    <td class="px-4 py-3 text-right">
+      <span class="text-xs text-blue-500 font-medium whitespace-nowrap">Ver →</span>
+    </td>
+  </tr>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MODAL — DETALLE DE ANOMALÍA
+// ════════════════════════════════════════════════════════════════════════════
+function openModal(id) {
+  selectedTx = String(id);
+  renderModal();
+  document.getElementById('modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  selectedTx = null;
+}
+
+function renderModal() {
+  if (!selectedTx) return;
+  const tx = getTx(selectedTx);
+  if (!tx) return;
+
+  const estado = getState(tx);
+  const nota   = getNota(tx);
+  let reasons  = [];
+  try { reasons = JSON.parse(tx.reasons_json); } catch {}
+  const maxShap = reasons.length > 0 ? Math.max(...reasons.map(r => r.peso_shap)) : 1;
+
+  const actionCfg = [
+    { key: 'Autorizado',  icon: '✓', cls: 'bg-green-600 hover:bg-green-700 text-white' },
+    { key: 'Desestimado', icon: '✗', cls: 'bg-slate-500 hover:bg-slate-600 text-white' },
+    { key: 'Escalado',    icon: '↑', cls: 'bg-orange-500 hover:bg-orange-600 text-white' },
+  ];
+  const actionBtns = actionCfg.map(({ key, icon, cls }) => {
+    const isActive = estado === key;
+    return `<button onclick="takeAction('${tx.trace_t_transaccion}','${key}')"
+      class="text-sm font-semibold px-4 py-2 rounded-lg transition-all ${cls}
+             ${isActive ? 'ring-2 ring-offset-2 ring-current' : 'opacity-80 hover:opacity-100'}">
+      ${icon} ${key}
+    </button>`;
+  }).join('');
+
+  const resRef = tx.trace_t_cve_res && tx.trace_t_cve_res !== 'None' && String(tx.trace_t_cve_res).trim();
+
+  document.getElementById('modal-content').innerHTML = `
+  <!-- Modal header -->
+  <div class="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 rounded-t-2xl z-10">
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex-1">
+        <div class="flex flex-wrap items-center gap-2 mb-1.5">
+          ${sevBadge(tx.severity)}
+          <span class="text-xs font-mono text-slate-400">Rango global #${tx.anomaly_rank}</span>
+          ${estadoBadge(estado)}
+        </div>
+        <h2 class="font-bold text-slate-800 text-base leading-tight">
+          Folio&nbsp;${tx.trace_t_folio}${tx.trace_t_folio_ext && tx.trace_t_folio_ext!=='0' ? '-'+tx.trace_t_folio_ext : ''}
+          &nbsp;·&nbsp; Cuarto&nbsp;${tx.trace_t_cuarto ?? '–'}
+          &nbsp;·&nbsp; <code>${tx.trace_t_codigo}</code>
+        </h2>
+        <p class="text-xs text-slate-400 mt-0.5">${fmtDate(tx.trace_t_timestamp)}</p>
+      </div>
+      <button onclick="closeModal()"
+        class="text-slate-400 hover:text-slate-700 text-2xl leading-none flex-shrink-0 mt-1 transition-colors">
+        ✕
+      </button>
+    </div>
+  </div>
+
+  <!-- Monto banner -->
+  <div class="px-6 py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+    <div class="flex items-baseline gap-3 flex-wrap">
+      <span class="text-3xl font-extrabold text-slate-900 tracking-tight">${fmt(tx.monto)}</span>
+      <span class="text-sm text-slate-500 font-medium">${tx.es_abono ? '📥 Abono / Crédito' : '📤 Cargo'}</span>
+      ${resRef ? `<span class="text-xs text-slate-400 border border-slate-200 px-2 py-0.5 rounded-md">Res. ${resRef}</span>` : ''}
+    </div>
+  </div>
+
+  <!-- Explicación principal -->
+  <div class="px-6 pt-5 pb-4">
+    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+      Por qué el sistema marcó esta transacción
+    </p>
+    <div class="space-y-4">
+      ${reasons.length === 0
+        ? `<p class="text-sm text-slate-600 italic bg-slate-50 rounded-lg px-4 py-3">${tx.explanation}</p>`
+        : reasons.map((r, i) => {
+            const barW = Math.round(r.peso_shap / maxShap * 100);
+            const barColor = i === 0 ? '#3b82f6' : i === 1 ? '#6366f1' : '#8b5cf6';
+            return `
+            <div class="flex gap-3">
+              <span class="text-xl flex-shrink-0 mt-0.5">${catIcon(r.categoria)}</span>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-sm font-semibold text-slate-700">${r.categoria}</span>
+                  <span class="text-xs text-slate-400 font-mono">${r.peso_shap.toFixed(3)}</span>
+                </div>
+                <div class="h-1.5 bg-slate-100 rounded-full mb-2">
+                  <div class="h-1.5 rounded-full shap-fill" style="width:${barW}%; background:${barColor}"></div>
+                </div>
+                <p class="text-sm text-slate-600 leading-relaxed">${r.texto}.</p>
+              </div>
+            </div>`;
+          }).join('')}
+    </div>
+  </div>
+
+  <!-- Tomar acción -->
+  <div class="px-6 py-5 border-t border-slate-100">
+    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Tomar acción</p>
+    <div class="flex flex-wrap gap-2 mb-4">
+      ${actionBtns}
+    </div>
+    <textarea id="nota-input-${tx.trace_t_transaccion}" rows="2"
+      placeholder="Agregar nota (queda registrada junto a la decisión)..."
+      class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 resize-none text-slate-700 placeholder:text-slate-300"
+    >${nota}</textarea>
+    <button id="btn-nota-${tx.trace_t_transaccion}"
+      onclick="saveNota('${tx.trace_t_transaccion}')"
+      class="mt-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium">
+      Guardar nota
+    </button>
+  </div>
+  `;
+}
+
+function takeAction(id, action) {
+  if (!STATES[id]) STATES[id] = {};
+  STATES[id].estado = action;
+  saveStates();
+  renderModal();
+  if (currentView === 'dashboard') renderDashboard();
+  if (currentView === 'lista')     renderLista();
+}
+
+function saveNota(id) {
+  const input = document.getElementById(`nota-input-${id}`);
+  if (!input) return;
+  if (!STATES[id]) STATES[id] = {};
+  STATES[id].nota = input.value;
+  saveStates();
+  const btn = document.getElementById(`btn-nota-${id}`);
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Guardada';
+    setTimeout(() => { if (btn) btn.textContent = orig; }, 1800);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ESTADÍSTICAS TAB
+// ════════════════════════════════════════════════════════════════════════════
+function renderStats() {
+  // Category counts
+  const catCounts = {};
+  DATA.forEach(d => {
+    d.categories.split(' | ').forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
+  });
+  const topCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  // Severity counts
+  const sevCounts = { Alta: 0, Media: 0, Informativa: 0 };
+  DATA.forEach(d => { if (sevCounts[d.severity] !== undefined) sevCounts[d.severity]++; });
+
+  // Hour distribution
+  const hourCounts = Array(24).fill(0);
+  DATA.forEach(d => {
+    try {
+      const h = new Date(String(d.trace_t_timestamp).replace(' ', 'T')).getHours();
+      if (!isNaN(h)) hourCounts[h]++;
+    } catch {}
+  });
+
+  // Estado breakdown
+  const estadoCounts = { Pendiente: 0, Autorizado: 0, Desestimado: 0, Escalado: 0 };
+  DATA.forEach(d => { const e = getState(d); if (estadoCounts[e] !== undefined) estadoCounts[e]++; });
+
+  document.getElementById('view-stats').innerHTML = `
+<div class="fade-in space-y-5">
+
+  <!-- Top row: donut + categories -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+    <!-- Severity donut -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <p class="text-sm font-semibold text-slate-700 mb-4">Distribución por severidad</p>
+      <div class="flex items-center gap-8">
+        <div class="relative w-40 h-40 flex-shrink-0">
+          <canvas id="chart-sev"></canvas>
+        </div>
+        <div class="space-y-3">
+          ${[['Alta','#ef4444','badge-alta'],['Media','#f59e0b','badge-media'],['Informativa','#22c55e','badge-informativa']].map(([s,c,bc]) => `
+          <div class="flex items-center gap-2.5">
+            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${c}"></span>
+            <span class="text-sm text-slate-600 w-20">${s}</span>
+            <span class="text-lg font-bold text-slate-800">${sevCounts[s]}</span>
+            <span class="text-xs text-slate-400">${(sevCounts[s]/DATA.length*100).toFixed(0)}%</span>
+          </div>`).join('')}
+          <div class="pt-2 border-t border-slate-100">
+            <p class="text-xs text-slate-400">Total: <strong class="text-slate-600">${DATA.length}</strong> anomalías</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estado breakdown -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <p class="text-sm font-semibold text-slate-700 mb-4">Estado de revisión</p>
+      <div class="space-y-3">
+        ${[
+          ['Pendiente',   '#3b82f6', estadoCounts.Pendiente],
+          ['Autorizado',  '#22c55e', estadoCounts.Autorizado],
+          ['Desestimado', '#94a3b8', estadoCounts.Desestimado],
+          ['Escalado',    '#f97316', estadoCounts.Escalado],
+        ].map(([label, color, cnt]) => {
+          const pct = DATA.length > 0 ? cnt / DATA.length * 100 : 0;
+          return `
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-slate-600">${label}</span>
+              <span class="font-semibold text-slate-800">${cnt} <span class="text-xs font-normal text-slate-400">(${pct.toFixed(0)}%)</span></span>
+            </div>
+            <div class="h-2.5 bg-slate-100 rounded-full">
+              <div class="h-2.5 rounded-full transition-all" style="width:${pct.toFixed(1)}%; background:${color}"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- Categories bar -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+    <p class="text-sm font-semibold text-slate-700 mb-4">Top 10 categorías detectadas</p>
+    <canvas id="chart-cat" height="240"></canvas>
+  </div>
+
+  <!-- Hourly bar -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+    <p class="text-sm font-semibold text-slate-700 mb-1">Distribución horaria de anomalías</p>
+    <p class="text-xs text-slate-400 mb-4">Barras rojas = horas con mayor concentración de anomalías</p>
+    <canvas id="chart-hr" height="110"></canvas>
+  </div>
+
+  <!-- Category table -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-slate-100">
+      <p class="text-sm font-semibold text-slate-700">Detalle de categorías</p>
+    </div>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 text-xs text-slate-400 uppercase tracking-wide border-b border-slate-100">
+          <th class="px-5 py-2.5 text-left">Categoría</th>
+          <th class="px-5 py-2.5 text-right">Anomalías</th>
+          <th class="px-5 py-2.5 text-right">% del total</th>
+          <th class="px-5 py-2.5 w-40">Peso relativo</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50">
+        ${topCats.map(([cat, cnt]) => `
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-2.5 text-slate-700">${catIcon(cat)} ${cat}</td>
+          <td class="px-5 py-2.5 text-right font-semibold text-slate-800">${cnt}</td>
+          <td class="px-5 py-2.5 text-right text-slate-500">${(cnt/DATA.length*100).toFixed(0)}%</td>
+          <td class="px-5 py-2.5">
+            <div class="h-2 bg-slate-100 rounded-full">
+              <div class="h-2 bg-blue-400 rounded-full" style="width:${(cnt/topCats[0][1]*100).toFixed(1)}%"></div>
+            </div>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+
+</div>`;
+
+  // Destroy old charts
+  if (chartSev) { chartSev.destroy(); chartSev = null; }
+  if (chartCat) { chartCat.destroy(); chartCat = null; }
+  if (chartHr)  { chartHr.destroy();  chartHr  = null; }
+
+  chartSev = new Chart(document.getElementById('chart-sev'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Alta', 'Media', 'Informativa'],
+      datasets: [{
+        data: [sevCounts.Alta, sevCounts.Media, sevCounts.Informativa],
+        backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }],
+    },
+    options: {
+      cutout: '62%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => ` ${ctx.label}: ${ctx.parsed} (${(ctx.parsed/DATA.length*100).toFixed(0)}%)`
+      }}},
+    },
+  });
+
+  chartCat = new Chart(document.getElementById('chart-cat'), {
+    type: 'bar',
+    data: {
+      labels: topCats.map(([c]) => c.length > 28 ? c.slice(0, 28) + '…' : c),
+      datasets: [{
+        data:            topCats.map(([, v]) => v),
+        backgroundColor: '#3b82f6',
+        borderRadius:    5,
+        borderSkipped:   false,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' } },
+        y: { grid: { display: false }, ticks: { color: '#475569', font: { size: 11 } } },
+      },
+    },
+  });
+
+  const maxHour = Math.max(...hourCounts);
+  chartHr = new Chart(document.getElementById('chart-hr'), {
+    type: 'bar',
+    data: {
+      labels: Array.from({ length: 24 }, (_, i) => `${i}h`),
+      datasets: [{
+        data:            hourCounts,
+        backgroundColor: hourCounts.map(v => v > maxHour * 0.6 ? '#ef4444' : v > maxHour * 0.35 ? '#f59e0b' : '#3b82f6'),
+        borderRadius:    3,
+        borderSkipped:   false,
+      }],
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { title: ([i]) => `${i.label} h`, label: ctx => ` ${ctx.parsed.y} anomalías` }
+      }},
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+        y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', stepSize: 5 } },
+      },
+    },
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// EXPORTAR REVISIONES (feedback para el modelo que aprende)
+// ════════════════════════════════════════════════════════════════════════════
+function exportarRevisiones() {
+  const rows = [['trace_row_id', 'trace_t_transaccion', 'estado', 'nota']];
+  DATA.forEach(tx => {
+    const st = STATES[tx.trace_t_transaccion];
+    if (st && st.estado && st.estado !== 'Pendiente') {
+      const nota = (st.nota || '').replace(/[\r\n,]/g, ' ');
+      rows.push([tx.trace_row_id, tx.trace_t_transaccion, st.estado, nota]);
+    }
+  });
+  if (rows.length === 1) {
+    alert('No hay revisiones para exportar.\nMarca alertas como Autorizado / Desestimado / Escalado primero.');
+    return;
+  }
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'revisiones.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function init() {
+  document.getElementById('date-display').textContent =
+    new Date().toLocaleDateString('es-MX', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
+
+  document.getElementById('view-dashboard').innerHTML = `
+    <div class="flex items-center justify-center py-24 text-slate-400">
+      <svg class="animate-spin h-6 w-6 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+      </svg>
+      Cargando datos...
+    </div>`;
+
+  try {
+    const res = await fetch('data/anomalies.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    DATA = await res.json();
+  } catch (e) {
+    document.getElementById('view-dashboard').innerHTML = `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-8 text-center fade-in">
+        <p class="text-lg font-semibold text-red-700 mb-2">No se pudieron cargar los datos</p>
+        <p class="text-sm text-red-500 mb-4">
+          El dashboard requiere un servidor HTTP local para leer el archivo <code>data/anomalies.json</code>.
+        </p>
+        <div class="bg-white border border-red-100 rounded-lg px-4 py-3 text-left inline-block">
+          <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Ejecuta esto en la terminal:</p>
+          <code class="text-sm text-slate-800 font-mono">
+            cd model_final/dashboard<br>
+            python -m http.server 8080
+          </code>
+        </div>
+        <p class="text-xs text-red-400 mt-3">Luego abre: <strong>http://localhost:8080</strong></p>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('badge-total').textContent = DATA.length;
+
+  setView('dashboard');
+}
+
+init();
+</script>
+</body>
+</html>

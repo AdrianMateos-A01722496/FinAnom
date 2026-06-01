@@ -12,16 +12,12 @@ Qué ya funciona aquí (usable hoy):
   - Esquema de etiquetas + registrar/cargar feedback (`record_feedback`, `load_feedback`).
   - Métricas de precisión de las alertas, global / por severidad / por tipo (`feedback_metrics`).
   - Sugerencia de umbral por control proporcional (`suggest_threshold`).
+  - Factor de confianza por regla desde su precisión (`suggest_rule_weights`).
   - Persistencia del estado aprendido en JSON (`save_feedback_state` / `load_feedback_state`).
 
-Qué queda como STUB documentado (el "implementar"):
-  - `suggest_rule_weight_deltas`: ajustar los pesos de cada regla (SCORES de model_Tony)
-    según su precisión observada.
-  - Enganche en el scoring: que `train_model` lea `feedback_state.json` y aplique el
-    umbral/pesos aprendidos al puntuar (ver NOTA en `apply_learned_state`).
-
-El almacen `feedback_labels.csv` es compatible con el etiquetado manual del dashboard
-(`dashboard/state_manager.py`).
+El estado aprendido (`{threshold_score_samples, rule_weights}`) lo APLICA `model_final`
+sobre el reporte consolidado para regenerar la cola, sin reentrenar el IF (adaptacion
+instantanea). Ver `model_final/model.py`.
 """
 
 from __future__ import annotations
@@ -45,9 +41,11 @@ class FeedbackConfig:
     """Parametros del controlador de adaptacion."""
 
     target_precision: float = 0.5   # precision objetivo de las alertas
-    min_labels: int = 30            # etiquetas minimas antes de mover nada
+    min_labels: int = 30            # etiquetas minimas (global) antes de mover el umbral
     margin: float = 0.1             # banda muerta alrededor del objetivo
     step: float = 0.15              # tamano del nudge del umbral (fraccion)
+    min_labels_por_regla: int = 10  # etiquetas minimas por cluster antes de ajustar su peso
+    peso_min: float = 0.5           # piso del factor de confianza de una regla (gradual, no colapsa)
 
 
 # --------------------------------------------------------------------------- #
@@ -146,11 +144,11 @@ def suggest_threshold(current_threshold: float, metrics: dict,
 # Persistencia del estado aprendido (FUNCIONA)
 # --------------------------------------------------------------------------- #
 def save_feedback_state(path: Path | str, threshold: float,
-                        rule_weight_deltas: dict | None = None) -> None:
-    """Guarda el estado aprendido (umbral + deltas de peso) para el siguiente scoring."""
+                        rule_weights: dict | None = None) -> None:
+    """Guarda el estado aprendido (umbral del IF + factor de confianza por regla)."""
     state = {
         "threshold_score_samples": float(threshold),
-        "rule_weight_deltas": rule_weight_deltas or {},
+        "rule_weights": rule_weights or {},
         "actualizado": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     Path(path).write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -163,34 +161,40 @@ def load_feedback_state(path: Path | str) -> dict | None:
 
 
 # --------------------------------------------------------------------------- #
-# STUBS documentados — el "implementar"
+# Adaptacion de pesos por regla (FUNCIONA)
 # --------------------------------------------------------------------------- #
-def suggest_rule_weight_deltas(report: pd.DataFrame, labels: pd.DataFrame,
-                               cfg: FeedbackConfig = FeedbackConfig()) -> dict:
-    """STUB: ajustar el peso de cada regla segun su precision observada.
+def rule_type_precision(report: pd.DataFrame, labels: pd.DataFrame) -> dict:
+    """Precision y n revisado por cada cluster de regla (un cargo cuenta en cada cluster que disparo)."""
+    rev = report.merge(labels[["trace_row_id", "decision"]], on="trace_row_id", how="inner")
+    rev = rev[rev["is_anomaly"]]
+    out: dict[str, dict] = {}
+    for _, row in rev.iterrows():
+        confirmada = row["decision"] == "anomalia_confirmada"
+        for cluster in str(row["tipo_inconsistencia"]).split(" | "):
+            if not cluster:
+                continue
+            d = out.setdefault(cluster, {"n": 0, "confirmadas": 0})
+            d["n"] += 1
+            d["confirmadas"] += int(confirmada)
+    for c, d in out.items():
+        d["precision"] = round(d["confirmadas"] / d["n"], 3) if d["n"] else None
+    return out
 
-    DISENO a implementar:
-      1. Tomar `feedback_metrics(...)['precision_por_tipo']`.
-      2. Para cada cluster de regla con precision < objetivo y suficientes etiquetas,
-         proponer un delta NEGATIVO sobre su puntaje en `model_Tony.reglas.SCORES`
-         (p.ej. proporcional a `objetivo - precision`), acotado.
-      3. Devolver {nombre_regla: delta}. `apply_learned_state` los aplica al puntuar.
 
-    Por ahora devuelve {} (sin ajuste) para no alterar el comportamiento base.
+def suggest_rule_weights(report: pd.DataFrame, labels: pd.DataFrame,
+                         cfg: FeedbackConfig = FeedbackConfig()) -> dict:
+    """Factor de confianza por cluster de regla, en [peso_min, 1.0], desde su precision.
+
+    Un cluster que el auditor rechaza seguido (baja precision) recibe un factor < 1 que
+    luego MULTIPLICA su `rule_score` -> sus alertas bajan de severidad. Clusters con
+    pocas etiquetas o buena precision se quedan en 1.0 (sin castigo). Simple y explicable.
     """
-    return {}
-
-
-def apply_learned_state(state: dict | None) -> dict:
-    """STUB: punto de enganche para que el scoring use lo aprendido.
-
-    DISENO a implementar en `model_Adrian/train_model.py`:
-      - Tras entrenar el IF, si existe `output/feedback_state.json`, USAR su
-        `threshold_score_samples` en vez del umbral adaptativo base (cuando haya
-        feedback acumulado), y sumar `rule_weight_deltas` a los SCORES de las reglas
-        antes de calcular `rule_score`.
-      - Esto cierra el lazo: revisar -> registrar -> adaptar -> re-scorear.
-
-    Devuelve el estado tal cual (sin efecto) hasta que se implemente el enganche.
-    """
-    return state or {}
+    prec = rule_type_precision(report, labels)
+    weights: dict[str, float] = {}
+    for cluster, d in prec.items():
+        if d["n"] < cfg.min_labels_por_regla or d["precision"] is None:
+            continue
+        if d["precision"] < cfg.target_precision:
+            # factor = precision observada, acotado por piso (p.ej. 30% precision -> factor 0.3)
+            weights[cluster] = round(max(cfg.peso_min, d["precision"]), 3)
+    return weights

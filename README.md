@@ -81,6 +81,32 @@ El pipeline completo genera:
 - Reportes de calidad e importancias proxy para interpretar qué variables aportan señal.
 - Modelo híbrido consolidado: cola de revisión de ~4% (presupuesto del auditor nocturno) con severidad, tipo de inconsistencia, motivo legible (reglas de Tony) y evidencia SHAP (Rogelio) por transacción.
 
+## Modelo final y dashboard (`model_final/`)
+
+`model_final/` es **el modelo que presentamos**: toma el modelo consolidado de `model_Adrian/` y le suma el **mecanismo de aprendizaje** (adaptación de umbral/pesos basada en el feedback del auditor), sin reentrenar el Isolation Forest. El dashboard HTML (diseño de Rogelio) muestra la cola y captura las decisiones del auditor.
+
+**El modelo que aprende (lazo de feedback):**
+
+1. **Genera los datos del dashboard** (cola de revisión actual):
+   ```bash
+   uv run python model_final/build_dashboard.py
+   ```
+2. **Levanta el dashboard** y ábrelo en el navegador:
+   ```bash
+   cd model_final/dashboard && uv run python -m http.server 8080
+   #  → http://localhost:8080
+   ```
+3. **Revisa y marca** cada alerta como *Autorizado / Desestimado / Escalado* (se guardan en el navegador) y pulsa **⬇ Exportar revisiones** → descarga `revisiones.csv`.
+4. **El modelo aprende**: ingiere las revisiones, adapta umbral/pesos y regenera la cola:
+   ```bash
+   uv run python model_final/adapt.py ~/Downloads/revisiones.csv
+   ```
+   Recarga el dashboard: las alertas de los tipos que el auditor desestima bajan de prioridad y la cola se reduce. Para volver al modelo base, borra `model_final/output/feedback_state.json` y regenera (paso 1).
+
+> Requisito: haber generado antes la base y el modelo consolidado (`uv run python pipeline/finanom_flow.py` y `uv run python model_Adrian/train_model.py`).
+
+Estructura de modelos por integrante: `model_Adrian/` (consolidado), `model_Tony/` (reglas), `model_Rogelio/` (IF + SHAP + dashboard original), `model_final/` (modelo presentable + aprendizaje).
+
 ## Instalación..
 
 Este proyecto usa `uv`:

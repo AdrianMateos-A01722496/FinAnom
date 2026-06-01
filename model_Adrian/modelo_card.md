@@ -51,7 +51,7 @@ Apoyo al auditor nocturno. Consolida el trabajo de los tres integrantes:
 
 ## 5. Bucle de feedback del auditor (el modelo que aprende)
 
-Modulo `model_Adrian/feedback.py`, mecanismo de **adaptacion de umbral/pesos**. Almacen `output/feedback_labels.csv` (compatible con el etiquetado del dashboard de Tony, `dashboard/state_manager.py`). `feedback_metrics()` mide precision y `suggest_threshold()` ajusta el umbral del IF por la precision observada; el ajuste de pesos por regla y el enganche en el scoring quedan como TODO documentado (`suggest_rule_weight_deltas`, `apply_learned_state`).
+Primitivas en `model_Adrian/feedback.py` (mecanismo de **adaptacion de umbral/pesos**): `feedback_metrics()` mide precision, `suggest_threshold()` ajusta el umbral del IF y `suggest_rule_weights()` aprende un factor de confianza por regla. El lazo COMPLETO (aplicar lo aprendido y regenerar la cola, sin reentrenar) vive en `model_final/` y se presenta en el dashboard.
 
 ## 6. Limitaciones
 
