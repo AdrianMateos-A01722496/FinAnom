@@ -3,15 +3,32 @@ name = "finanom"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "flask>=3.0.0",
+    "joblib>=1.4.0",
     "matplotlib>=3.10.9",
     "numpy>=2.4.6",
     "pandas>=3.0.3",
     "prefect>=3.7.1",
     "pyarrow>=24.0.0",
     "scikit-learn>=1.8.0",
+    "shap>=0.46.0",
+    "streamlit>=1.40.0",
 ]
 
 [dependency-groups]
 dev = [
     "ipykernel>=7.2.0",
+    "ruff>=0.9.0",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Los notebooks son exploratorios/explicativos (magics, imports tras sys.path); no se lintean.
+extend-exclude = ["*.ipynb", ".venv"]
+
+[tool.ruff.lint.per-file-ignores]
+# Los flows de Prefect, los pipelines y los demos insertan ROOT en sys.path ANTES de
+# importar los modulos de cada fase: el import-no-al-tope es intencional y necesario.
+"pipeline/*.py" = ["E402"]
+"model_Tony/run_demo.py" = ["E402"]

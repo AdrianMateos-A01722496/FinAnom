@@ -1,83 +1,53 @@
 # FINANOM
 
-FINANOM es una demo de deteccion no supervisada de anomalías e inconsistencias financieras sobre datos de un PMS hotelero. El proyecto usa transacciones reales de un hotel en México, principalmente en MXN, y prepara un dataset listo para modelado con Isolation Forest.
+FINANOM detecta anomalías e inconsistencias financieras en transacciones hoteleras y las muestra en un dashboard para revisión operativa.
 
-## Problema de negocio
+## Arquitectura del modelo final
 
-En hoteles, cargos duplicados, errores de posteo manual, montos fuera de contexto o cancelaciones mal registradas suelen detectarse hasta la auditoría nocturna. Esto retrasa el cierre contable y obliga al auditor a corregir incidencias cuando el día operativo ya terminó.
+Todo lo necesario para correr la demo vive en `model_final/`.
 
-## User story 
+`model_final` combina cuatro piezas:
 
-> Como auditor, quiero que el sistema me alerte sobre cargos atípicos durante el día para no esperar a la auditoría nocturna para corregirlos.
+- **Datos y artefactos**: parquets limpios/modelados, modelo entrenado, reporte de revisión y archivos del dashboard.
+- **Modelo no supervisado**: Isolation Forest sobre features `feat_*` para detectar patrones atípicos globales.
+- **Reglas de negocio**: validaciones explicables para duplicados, montos atípicos, cancelaciones, cargos fuera de estancia, signos contables, método de pago y otros casos operativos.
+- **Aprendizaje por feedback**: cuando el auditor desestima o confirma alertas, el sistema ajusta umbral y pesos de reglas para reducir falsos positivos en la siguiente cola.
 
-## Objetivo
+La salida principal es una cola priorizada de revisión con severidad, motivo legible y evidencia para el auditor.
 
-Construir un pipeline reproducible que transforme datos crudos del PMS en una matriz de features limpia, codificada y lista para detección no supervisada. La meta no es crear un modelo perfecto, sino una demo completa, explicable y robusta para identificar transacciones que ameritan corrección inmediata o revisión por auditoría.
-
-## Datos
-
-- Fuente cruda: `tablas_parquet/` con 24 tablas originales.
-- Diccionarios fuente: `diccionario_datos/`.
-- Tabla núcleo: `hottra`, con 1,145,526 transacciones.
-- Contexto de reservación: `hothsp`, con 171,669 reservaciones.
-- Grano analítico: una fila = una transacción = una posible predicción.
-
-## Pipeline
-
-El flujo principal está orquestado con Prefect:
+## Dashboard con aprendizaje
 
 ```bash
-uv run python pipeline/finanom_flow.py
+uv run python model_final/app.py
 ```
 
-Fases:
+Abrir: <http://127.0.0.1:5000>
 
-1. **Consolidación** (`data_consolidation/`): une transacciones (`hottra`) con contexto de reservación (`hothsp`) y genera una base analítica única.
-2. **Limpieza** (`data_cleaning/`): elimina columnas redundantes, constantes, colineales o de bajo valor sin borrar transacciones.
-3. **Modelado de datos** (`data_modeling/`): crea features, aplica encoding, escalado robusto, imputación, diagnósticos de calidad e Isolation Forest proxy.
+Flujo:
 
-Y la fase de **entrenamiento** del modelo, en un flow aparte que parte de `training_data/`:
+1. Revisar alertas.
+2. Marcar `Autorizado`, `Desestimado` o `Escalado`.
+3. Presionar `Aplicar correcciones`.
+
+El backend aplica el feedback automáticamente: guarda revisiones, actualiza el estado aprendido y regenera los datos del dashboard sin CSV ni terminal.
+
+## Comandos utiles
 
 ```bash
-uv run python pipeline/finanom_training_flow.py
+uv run python model_final/build_dashboard.py
+uv run python model_final/train_model.py
 ```
 
-4. **Entrenamiento** (`model_training/`): modelo HÍBRIDO (Isolation Forest no supervisado + reglas de negocio tipadas) que produce un reporte de revisión explicable para el auditor nocturno, su evaluación de calidad (inyección sintética, estabilidad, overlap) y la model card.
+## Duplicados
 
-Los notebooks y diccionarios documentan las decisiones de cada fase. Los archivos en `output/` son artefactos regenerables de cada etapa. Los datasets finales para entrenar modelos viven en `training_data/`.
+La regla `DUPLICADO` ya no marca como anomalía cualquier repetición en el mismo día. Ahora solo suma score cuando hay duplicado de alta confianza: mismo folio, subfolio, cuarto, código, naturaleza contable, monto y minuto. Las repeticiones por día quedan como contexto porque pueden ser cargos legítimos.
 
-## Artefactos principales
+## Instalacion
 
-- `data_consolidation/output/transacciones_consolidado.parquet`
-- `data_cleaning/output/transacciones_limpio.parquet`
-- `training_data/transacciones_modelado.parquet`
-- `training_data/X_modelo.parquet`
-- `data_consolidation/diccionario_base_consolidada.md`
-- `data_cleaning/diccionario_limpio.md`
-- `data_modeling/diccionario_modelado.md`
-- `model_training/output/reporte_revision.parquet` (cola de revisión explicable)
-- `model_training/output/reporte_evaluacion_modelo.md` y `model_training/modelo_card.md`
+En caso de no contar con uv, revisar instrucciones de instalacion en [Liga a Instrucciones de Instalacion de uv](https://docs.astral.sh/uv/getting-started/installation/)
 
-## Estado actual
-
-El pipeline completo genera:
-
-- 1,145,526 transacciones conservadas en todas las fases.
-- 63 features finales para modelado.
-- Matriz `X_modelo.parquet` completamente numérica, sin nulos y sin features constantes.
-- Reportes de calidad e importancias proxy para interpretar qué variables aportan señal.
-- Modelo híbrido entrenado: cola de revisión de ~2% (presupuesto del auditor nocturno) con tipo de inconsistencia, motivo, features explicativas y acción sugerida por transacción.
-
-## Instalación..
-
-Este proyecto usa `uv`:
+Despues de clonar el repositorio, ejecutar el siguiente comando para instalar las dependencias:
 
 ```bash
 uv sync
-```
-
-Luego ejecutar:
-
-```bash
-uv run python pipeline/finanom_flow.py
 ```

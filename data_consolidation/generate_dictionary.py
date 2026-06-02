@@ -126,10 +126,10 @@ def main() -> None:
         "`tablas_parquet/`.\n"
     )
     lines.append("## 1. Resumen\n")
-    lines.append(f"- **Archivo**: `data_consolidation/output/transacciones_consolidado.parquet`")
+    lines.append("- **Archivo**: `data_consolidation/output/transacciones_consolidado.parquet`")
     lines.append(f"- **Filas**: {n:,} (una por transacción de `hottra`)")
     lines.append(f"- **Columnas**: {df.shape[1]}")
-    lines.append(f"- **Grano**: una transacción = una predicción del modelo")
+    lines.append("- **Grano**: una transacción = una predicción del modelo")
     rng = (df["t_timestamp"].min(), df["t_timestamp"].max())
     lines.append(f"- **Rango temporal**: {rng[0]:%Y-%m-%d} → {rng[1]:%Y-%m-%d}")
     cob = 100 * df["tiene_reservacion"].mean()
