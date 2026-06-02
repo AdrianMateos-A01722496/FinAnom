@@ -44,6 +44,10 @@ La regla `DUPLICADO` ya no marca como anomalía cualquier repetición en el mism
 
 ## Instalacion
 
+En caso de no contar con uv, revisar instrucciones de instalacion en [Liga a Instrucciones de Instalacion de uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+Despues de clonar el repositorio, ejecutar el siguiente comando para instalar las dependencias:
+
 ```bash
 uv sync
 ```
