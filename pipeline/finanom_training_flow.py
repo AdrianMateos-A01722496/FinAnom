@@ -1,12 +1,8 @@
-"""Flow Prefect para entrenar el modelo FINANOM sobre los datos de `training_data/`.
+"""Flow Prefect para entrenar el modelo FINANOM (carpeta `model_final/`).
 
-Depende de los artefactos que produce `pipeline/finanom_flow.py` (la fase de datos).
-Ejecuta el modelo HIBRIDO (Isolation Forest + reglas de negocio) y genera el reporte
-de revision, la evaluacion de calidad y la model card.
-
-Cadena completa desde cero:
-    uv run python pipeline/finanom_flow.py            # crudos -> training_data/
-    uv run python pipeline/finanom_training_flow.py   # training_data/ -> modelo + reporte
+Entrena el modelo HIBRIDO (Isolation Forest + reglas de negocio) sobre los datasets de
+`model_final/training_data/` y genera el reporte de revision, la evaluacion de calidad y
+la model card en `model_final/output/`. Es el modelo actual (todo vive en `model_final/`).
 
 Uso:
     uv run python pipeline/finanom_training_flow.py
@@ -23,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from model_Adrian.train_model import (
+from model_final.train_model import (
     CLEAN_FILE,
     MODEL_CARD_FILE,
     MODELED_FILE,
