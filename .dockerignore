@@ -1,0 +1,14 @@
+.git
+.vscode
+.venv
+__pycache__
+
+.claude
+
+model_Adrian
+model_Rogelio
+model_Tony
+
+data_consolidation
+data_cleaning
+pipeline
