@@ -164,8 +164,14 @@ def build_synthetic_transaction(df_window: pd.DataFrame, scenario: str = "anomal
     if df_window.empty:
         raise ValueError("No hay ventana base para sintetizar una transaccion.")
 
-    base = df_window.sort_values("t_timestamp").iloc[-1][CLEAN_COLUMNS].to_dict()
-    now = pd.Timestamp.now().floor("min")
+    work = df_window.copy()
+    work["_ts"] = pd.to_datetime(work["t_timestamp"], errors="coerce", format="mixed")
+    latest_ts = work["_ts"].max()
+    if pd.isna(latest_ts):
+        latest_ts = pd.Timestamp.now().floor("min")
+    base = work.sort_values("_ts").iloc[-1][CLEAN_COLUMNS].to_dict()
+    now_time = pd.Timestamp.now().floor("min")
+    demo_ts = latest_ts.normalize() + pd.Timedelta(hours=now_time.hour, minutes=now_time.minute)
     tx_id = f"new-{uuid.uuid4().hex[:12]}"
     base.update(
         {
@@ -176,7 +182,7 @@ def build_synthetic_transaction(df_window: pd.DataFrame, scenario: str = "anomal
             "t_cuarto": "SIM",
             "t_usuario": "DEMO",
             "t_usuario_mod": "",
-            "t_timestamp": now,
+            "t_timestamp": demo_ts,
             "t_tra_cancelada": "",
             "es_split": False,
             "created_at": pd.Timestamp.now("UTC").isoformat(),
@@ -210,8 +216,8 @@ def build_synthetic_transaction(df_window: pd.DataFrame, scenario: str = "anomal
                 "t_propina": 9000.0,
                 "t_noches": 1,
                 "tiene_reservacion": True,
-                "h_fec_lld": now + pd.Timedelta(days=10),
-                "h_fec_sda": now + pd.Timedelta(days=12),
+                "h_fec_lld": demo_ts + pd.Timedelta(days=10),
+                "h_fec_sda": demo_ts + pd.Timedelta(days=12),
                 "h_num_per": 2,
                 "h_num_noc": 2,
                 "h_tfa": 1800.0,
@@ -249,6 +255,12 @@ def dashboard_record(row: pd.Series) -> dict[str, Any]:
         )
     severity = M.SEV_DASHBOARD.get(str(row.get("severidad") or "BAJO"), "Informativa")
     estado = row.get("estado") or "Pendiente"
+    created_at = row.get("created_at")
+    is_new = bool(row.get("es_nueva"))
+    if is_new and created_at:
+        created_ts = pd.to_datetime(created_at, errors="coerce", utc=True)
+        if pd.notna(created_ts):
+            is_new = (pd.Timestamp.now("UTC") - created_ts) < pd.Timedelta(minutes=10)
     return {
         "trace_row_id": str(row.get("tx_id")),
         "tx_id": str(row.get("tx_id")),
@@ -277,7 +289,8 @@ def dashboard_record(row: pd.Series) -> dict[str, Any]:
         "estado": str(estado),
         "nota": str(row.get("nota") or ""),
         "is_anomaly": is_anomaly,
-        "es_nueva": bool(row.get("es_nueva")),
+        "es_nueva": is_new,
+        "created_at": None if pd.isna(created_at) else str(created_at),
         "score_samples": None if pd.isna(row.get("score_samples")) else float(row.get("score_samples")),
         "rule_score": None if pd.isna(row.get("rule_score_eff")) else float(row.get("rule_score_eff")),
     }

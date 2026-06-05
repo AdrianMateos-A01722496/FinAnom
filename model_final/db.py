@@ -25,6 +25,17 @@ FEEDBACK_TABLE = "feedback_state"
 LABELS_TABLE = "feedback_labels"
 
 ALL_COLUMNS = RUNTIME_COLUMNS + CLEAN_COLUMNS + SCORE_COLUMNS
+NEW_BADGE_TTL_MINUTES = 10
+CATEGORY_FILTERS = {
+    "Monto atipico": "MONTO_ATIPICO",
+    "Cancelacion irregular": "CANCELACION",
+    "Fuera de estancia": "FUERA_DE_ESTANCIA",
+    "Inconsistencia de reservacion": "RESERVACION",
+    "Inconsistencia de signo": "INCONSISTENCIA_DE_SIGNO",
+    "Metodo de pago": "METODO_PAGO",
+    "Posible duplicado": "DUPLICADO",
+    "Patron atipico (modelo)": "ATIPICO_IF",
+}
 
 
 def database_url() -> str:
@@ -201,6 +212,27 @@ def update_review_states(engine: Engine, reviews: pd.DataFrame) -> None:
             )
 
 
+def expire_new_flags(engine: Engine) -> None:
+    cutoff = (pd.Timestamp.now("UTC") - pd.Timedelta(minutes=NEW_BADGE_TTL_MINUTES)).isoformat()
+    with engine.begin() as conn:
+        conn.execute(
+            text(f"UPDATE {TABLE} SET es_nueva = 0 WHERE es_nueva = 1 AND created_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+
+
+def latest_day_range(engine: Engine) -> tuple[str | None, str | None]:
+    ensure_store(engine)
+    with engine.begin() as conn:
+        value = conn.execute(text(f"SELECT MAX(t_timestamp) FROM {TABLE}")).scalar()
+    latest = pd.to_datetime(value, errors="coerce", format="mixed")
+    if pd.isna(latest):
+        return None, None
+    start = latest.normalize()
+    end = start + pd.Timedelta(days=1)
+    return start.strftime("%Y-%m-%d %H:%M:%S"), end.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def _severity_where(value: str) -> tuple[str, dict[str, Any]]:
     if not value:
         return "", {}
@@ -219,20 +251,49 @@ def _severity_where(value: str) -> tuple[str, dict[str, Any]]:
     return f"severidad IN ({names})", params
 
 
+def _text_expr(engine: Engine, column: str) -> str:
+    if engine.dialect.name.startswith("mssql"):
+        return f"CAST({column} AS NVARCHAR(MAX))"
+    return f"CAST({column} AS TEXT)"
+
+
 def query_transactions(
     engine: Engine,
     filter_mode: str = "anomalias",
     severidad: str = "",
     q: str = "",
+    scope: str = "all",
+    date_from: str = "",
+    date_to: str = "",
+    folio: str = "",
+    cuarto: str = "",
+    concepto: str = "",
+    categoria: str = "",
+    monto_min: str = "",
+    monto_max: str = "",
+    sort_by: str = "priority",
+    sort_dir: str = "asc",
     page: int = 1,
     page_size: int = 25,
 ) -> dict[str, Any]:
     ensure_store(engine)
+    expire_new_flags(engine)
     page = max(1, int(page or 1))
     page_size = min(200, max(1, int(page_size or 25)))
 
     clauses: list[str] = []
     params: dict[str, Any] = {}
+    latest_start, latest_end = latest_day_range(engine)
+    if scope == "today" and latest_start and latest_end:
+        clauses.append("t_timestamp >= :latest_start AND t_timestamp < :latest_end")
+        params.update({"latest_start": latest_start, "latest_end": latest_end})
+    if date_from:
+        clauses.append("t_timestamp >= :date_from")
+        params["date_from"] = f"{date_from} 00:00:00"
+    if date_to:
+        clauses.append("t_timestamp < :date_to")
+        end = pd.to_datetime(date_to, errors="coerce") + pd.Timedelta(days=1)
+        params["date_to"] = end.strftime("%Y-%m-%d %H:%M:%S")
     if filter_mode == "anomalias":
         clauses.append("is_anomaly = 1")
     sev_clause, sev_params = _severity_where(severidad)
@@ -241,27 +302,71 @@ def query_transactions(
         params.update(sev_params)
     if q:
         clauses.append(
-            "(CAST(t_folio AS TEXT) LIKE :q OR CAST(t_cuarto AS TEXT) LIKE :q "
-            "OR CAST(t_codigo AS TEXT) LIKE :q OR CAST(t_referencia AS TEXT) LIKE :q)"
+            f"({_text_expr(engine, 't_folio')} LIKE :q OR {_text_expr(engine, 't_cuarto')} LIKE :q "
+            f"OR {_text_expr(engine, 't_codigo')} LIKE :q OR {_text_expr(engine, 't_referencia')} LIKE :q)"
         )
         params["q"] = f"%{q}%"
+    if folio:
+        clauses.append(f"{_text_expr(engine, 't_folio')} LIKE :folio")
+        params["folio"] = f"%{folio}%"
+    if cuarto:
+        clauses.append(f"{_text_expr(engine, 't_cuarto')} LIKE :cuarto")
+        params["cuarto"] = f"%{cuarto}%"
+    if concepto:
+        clauses.append(f"{_text_expr(engine, 't_codigo')} LIKE :concepto")
+        params["concepto"] = f"%{concepto}%"
+    if categoria:
+        if categoria == "Transaccion normal":
+            clauses.append("(tipo_inconsistencia IS NULL OR tipo_inconsistencia = '')")
+        else:
+            clauses.append(f"{_text_expr(engine, 'tipo_inconsistencia')} LIKE :categoria")
+            params["categoria"] = f"%{CATEGORY_FILTERS.get(categoria, categoria.upper().replace(' ', '_'))}%"
+    if monto_min:
+        clauses.append("t_monto >= :monto_min")
+        params["monto_min"] = float(monto_min)
+    if monto_max:
+        clauses.append("t_monto <= :monto_max")
+        params["monto_max"] = float(monto_max)
     where = " WHERE " + " AND ".join(clauses) if clauses else ""
     offset = (page - 1) * page_size
+    sort_map = {
+        "priority": "es_nueva DESC, is_anomaly DESC, anomaly_rank ASC, t_timestamp DESC",
+        "fecha": "t_timestamp",
+        "hora": "t_timestamp",
+        "monto": "t_monto",
+        "folio": "t_folio",
+        "concepto": "t_codigo",
+        "severidad": "severidad",
+    }
+    if sort_by not in sort_map:
+        sort_by = "priority"
+    if sort_by == "priority":
+        order_by = sort_map[sort_by]
+    else:
+        direction = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
+        order_by = f"es_nueva DESC, {sort_map[sort_by]} {direction}"
 
     with engine.begin() as conn:
+        total_global = int(conn.execute(text(f"SELECT COUNT(*) FROM {TABLE}")).scalar() or 0)
         total = int(conn.execute(text(f"SELECT COUNT(*) FROM {TABLE}{where}"), params).scalar() or 0)
-        total_anom = int(conn.execute(text(f"SELECT COUNT(*) FROM {TABLE} WHERE is_anomaly = 1")).scalar() or 0)
-        total_new = int(conn.execute(text(f"SELECT COUNT(*) FROM {TABLE} WHERE es_nueva = 1")).scalar() or 0)
+        total_anom = int(conn.execute(
+            text(f"SELECT COUNT(*) FROM {TABLE}{where} AND is_anomaly = 1" if where else f"SELECT COUNT(*) FROM {TABLE} WHERE is_anomaly = 1"),
+            params,
+        ).scalar() or 0)
+        total_new = int(conn.execute(
+            text(f"SELECT COUNT(*) FROM {TABLE}{where} AND es_nueva = 1" if where else f"SELECT COUNT(*) FROM {TABLE} WHERE es_nueva = 1"),
+            params,
+        ).scalar() or 0)
         if engine.dialect.name.startswith("mssql"):
             sql = (
                 f"SELECT * FROM {TABLE}{where} "
-                "ORDER BY es_nueva DESC, is_anomaly DESC, anomaly_rank ASC, t_timestamp DESC "
+                f"ORDER BY {order_by} "
                 "OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY"
             )
         else:
             sql = (
                 f"SELECT * FROM {TABLE}{where} "
-                "ORDER BY es_nueva DESC, is_anomaly DESC, anomaly_rank ASC, t_timestamp DESC "
+                f"ORDER BY {order_by} "
                 "LIMIT :limit OFFSET :offset"
             )
         rows = conn.execute(text(sql), {**params, "limit": page_size, "offset": offset}).mappings().all()
@@ -274,5 +379,11 @@ def query_transactions(
         "page": page,
         "page_size": page_size,
         "total_pages": total_pages,
-        "summary": {"total_anomalias": total_anom, "total_nuevas": total_new},
+        "summary": {
+            "total_global": total_global,
+            "total_anomalias": total_anom,
+            "total_nuevas": total_new,
+            "latest_day": latest_start[:10] if latest_start else None,
+            "new_badge_ttl_minutes": NEW_BADGE_TTL_MINUTES,
+        },
     }
