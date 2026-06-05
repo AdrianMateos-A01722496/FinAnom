@@ -171,7 +171,7 @@ def _adapt_reviews_sql(reviews: pd.DataFrame, revisor: str = "dashboard") -> dic
 
     engine = db.ensure_store()
     state = db.load_feedback_state(engine)
-    current = db.load_window(engine)
+    current = db.load_recent_window(engine, limit=2000)
     current["trace_row_id"] = current["tx_id"].astype(str)
     threshold_actual = (state or {}).get(
         "threshold_score_samples",
@@ -190,13 +190,9 @@ def _adapt_reviews_sql(reviews: pd.DataFrame, revisor: str = "dashboard") -> dic
     db.save_feedback_state(engine, new_state)
     db.append_feedback_labels(engine, labels, revisor)
     db.update_review_states(engine, rev)
-
-    rescored = scoring.score_window(db.load_window(engine), new_state)
-    db.save_scored_window(engine, rescored)
-    n_despues = int(rescored["is_anomaly"].sum())
     return {
         "applied": True,
-        "message": "Correcciones aplicadas y transacciones re-puntuadas.",
+        "message": "Correcciones aplicadas.",
         "reviews_read": int(len(rev)),
         "labels_used": int(len(labels)),
         "metrics": metrics,
@@ -205,8 +201,8 @@ def _adapt_reviews_sql(reviews: pd.DataFrame, revisor: str = "dashboard") -> dic
         "threshold_reason": sug["motivo"],
         "rule_weights": weights,
         "queue_before": n_antes,
-        "queue_after": n_despues,
-        "queue_delta": n_despues - n_antes,
+        "queue_after": n_antes,
+        "queue_delta": 0,
     }
 
 
