@@ -1,7 +1,12 @@
 .git
+.gitignore
 .vscode
 .venv
 __pycache__
+**/__pycache__/
+*.py[cod]
+.ruff_cache/
+.DS_Store
 
 .claude
 
@@ -12,3 +17,24 @@ model_Tony
 data_consolidation
 data_cleaning
 pipeline
+training_data
+tablas_parquet
+
+notebooks
+*.ipynb
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.svg
+
+*.csv
+*.parquet
+*.joblib
+
+model_final/training_data/
+model_final/output/*
+!model_final/output/scorer_bundle.joblib
+!model_final/output/evaluacion_modelo.json
+!model_final/output/reporte_revision.parquet
+!model_final/data/transacciones_limpio.parquet

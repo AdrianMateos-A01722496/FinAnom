@@ -43,6 +43,9 @@
     .badge-autorizado  { background: #f0fdf4; color: #15692b; border: 1px solid #bbf7d0; }
     .badge-desestimado { background: #f5f4f2; color: #666666; border: 1px solid #d8d5d0; }
     .badge-escalado    { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .badge-anomalia    { background: #fdf1f1; color: #b92020; border: 1px solid #f0c4c4; }
+    .badge-normal      { background: #eef7f1; color: #15692b; border: 1px solid #bbf7d0; }
+    .badge-nueva       { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
     .sev-dot-alta        { width: 6px; height: 6px; border-radius: 50%; background: #d64040; display: inline-block; flex-shrink: 0; }
     .sev-dot-media       { width: 6px; height: 6px; border-radius: 50%; background: #c8940a; display: inline-block; flex-shrink: 0; }
     .sev-dot-informativa { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; display: inline-block; flex-shrink: 0; }
@@ -93,7 +96,7 @@
     <nav class="flex gap-1">
       <button id="tab-dashboard" onclick="setView('dashboard')" class="tab-active px-4 py-4 text-sm transition-colors">Dashboard</button>
       <button id="tab-lista" onclick="setView('lista')" class="tab-inactive px-4 py-4 text-sm transition-colors">
-        Anomalías <span id="badge-total" style="background:var(--bg);color:var(--lt);font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:3px;">–</span>
+        Transacciones <span id="badge-total" style="background:var(--bg);color:var(--lt);font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:3px;">–</span>
       </button>
       <button id="tab-stats" onclick="setView('stats')" class="tab-inactive px-4 py-4 text-sm transition-colors">Estadísticas</button>
     </nav>
@@ -128,13 +131,22 @@
 // STATE
 // ════════════════════════════════════════════════════════════════════════════
 let DATA       = [];
+let LIST_RECORDS = [];
+let TX_META    = { total: 0, page: 1, page_size: 25, total_pages: 1, summary: {} };
+let TX_API_AVAILABLE = null;
+let FALLBACK_DATA = null;
+let TX_STATUS = '';
 let STATES     = JSON.parse(localStorage.getItem('finanom_states_v2') || '{}');
 function saveStates() { localStorage.setItem('finanom_states_v2', JSON.stringify(STATES)); }
 let currentView = 'dashboard';
 let selectedTx  = null;
-let filters     = { folio: '', cuarto: '', concepto: '', fechaPreset: '', fechaDesde: '', fechaHasta: '', categoria: '', severity: '', estado: '' };
+const DEFAULT_FILTERS = { folio: '', cuarto: '', concepto: '', q: '', fechaPreset: '', fechaDesde: '', fechaHasta: '', categoria: '', severity: '', estado: '', txMode: 'todas' };
+let filters     = { ...DEFAULT_FILTERS };
 let listPage    = 1;
 const PAGE_SIZE = 25;
+let autoRefreshMinutes = Number(localStorage.getItem('finanom_auto_refresh_min') || '0');
+let autoRefreshTimer = null;
+let simulatingScenario = null;
 const MESES     = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let chartSev = null, chartCat = null, chartHr = null;
 
@@ -193,10 +205,12 @@ const catIcon = c => {
 // ════════════════════════════════════════════════════════════════════════════
 function getFiltered() {
   return DATA.filter(d => {
+    if (filters.txMode === 'anomalias' && !isTxAnomaly(d)) return false;
+    if (filters.q && !matchesQuery(d, filters.q)) return false;
     if (filters.folio    && !String(d.trace_t_folio).toLowerCase().includes(filters.folio.toLowerCase())) return false;
     if (filters.cuarto   && !String(d.trace_t_cuarto??'').toLowerCase().includes(filters.cuarto.toLowerCase())) return false;
     if (filters.concepto && !String(d.trace_t_codigo).toLowerCase().includes(filters.concepto.toLowerCase())) return false;
-    if (filters.categoria && !d.categories.split(' | ').includes(filters.categoria)) return false;
+    if (filters.categoria && !splitCats(d).includes(filters.categoria)) return false;
     if (filters.severity && d.severity !== filters.severity) return false;
     if (filters.estado   && getState(d) !== filters.estado)  return false;
     const txDate = new Date(String(d.trace_t_timestamp).replace(' ', 'T'));
@@ -205,8 +219,89 @@ function getFiltered() {
     return true;
   });
 }
-function getState(tx) { return STATES[tx.trace_row_id]?.estado ?? tx.estado; }
+function getState(tx) { return STATES[tx.trace_row_id]?.estado ?? tx.estado ?? 'Pendiente'; }
 function getNota(tx)  { return STATES[tx.trace_row_id]?.nota  ?? ''; }
+function resetFilters() { filters = { ...DEFAULT_FILTERS }; }
+function truthy(v) { return v === true || v === 1 || String(v).toLowerCase() === 'true'; }
+function isTxAnomaly(tx) {
+  if (tx && Object.prototype.hasOwnProperty.call(tx, 'is_anomaly')) return truthy(tx.is_anomaly);
+  return true;
+}
+function splitCats(tx) {
+  return String(tx?.categories || '').split(' | ').map(c => c.trim()).filter(Boolean);
+}
+function matchesQuery(tx, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return true;
+  return [
+    tx.trace_row_id, tx.trace_t_folio, tx.trace_t_folio_ext, tx.trace_t_transaccion,
+    tx.trace_t_cuarto, tx.trace_t_codigo, tx.trace_t_cve_res, tx.categories, tx.explanation,
+  ].some(v => String(v ?? '').toLowerCase().includes(q));
+}
+function escAttr(v) { return String(v ?? '').replace(/"/g, '&quot;'); }
+function normalizeSeverity(v, isAnomaly) {
+  const raw = String(v || '').trim();
+  const map = { ALTO:'Alta', CRITICO:'Alta', CRITICO_ALTO:'Alta', MEDIO:'Media', BAJO:'Informativa' };
+  if (['Alta','Media','Informativa'].includes(raw)) return raw;
+  if (map[raw.toUpperCase()]) return map[raw.toUpperCase()];
+  return isAnomaly ? 'Informativa' : 'Informativa';
+}
+function normalizeCategories(tx, isAnomaly) {
+  if (tx.categories) return String(tx.categories);
+  if (tx.tipo_inconsistencia) {
+    return String(tx.tipo_inconsistencia)
+      .split(' | ')
+      .map(c => c.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase()))
+      .join(' | ');
+  }
+  return isAnomaly ? 'Patron atipico (modelo)' : 'Transaccion normal';
+}
+function normalizeReasons(tx, categories, isAnomaly) {
+  if (tx.reasons_json) return String(tx.reasons_json);
+  const cats = categories.split(' | ').filter(Boolean);
+  return JSON.stringify(cats.map((categoria, i) => ({
+    categoria,
+    texto: isAnomaly ? 'El sistema encontro una senal relevante en esta transaccion' : 'Transaccion sin senales de anomalia',
+    peso_shap: Math.max(0.35, 1 - i * 0.15),
+  })));
+}
+function normalizeRecord(tx, index = 0, forceNew = false) {
+  const isAnomaly = Object.prototype.hasOwnProperty.call(tx, 'is_anomaly') ? truthy(tx.is_anomaly) : true;
+  const categories = normalizeCategories(tx, isAnomaly);
+  const severity = normalizeSeverity(tx.severity ?? tx.severidad, isAnomaly);
+  const monto = tx.monto ?? tx.trace_t_importe ?? tx.importe ?? tx.amount ?? 0;
+  return {
+    ...tx,
+    trace_row_id: tx.trace_row_id ?? tx.id ?? `tx-${Date.now()}-${index}`,
+    trace_t_folio: tx.trace_t_folio ?? tx.folio ?? '–',
+    trace_t_folio_ext: tx.trace_t_folio_ext ?? '0',
+    trace_t_transaccion: tx.trace_t_transaccion ?? tx.transaccion ?? tx.trace_row_id ?? '–',
+    trace_t_cuarto: tx.trace_t_cuarto ?? tx.cuarto ?? '–',
+    trace_t_codigo: tx.trace_t_codigo ?? tx.codigo ?? '–',
+    trace_t_timestamp: tx.trace_t_timestamp ?? tx.timestamp ?? tx.fecha ?? '',
+    trace_t_cve_res: tx.trace_t_cve_res ?? tx.cve_res ?? '',
+    anomaly_rank: tx.anomaly_rank ?? tx.rank ?? index + 1,
+    severity,
+    categories,
+    explanation: tx.explanation ?? tx.motivos ?? (isAnomaly ? 'Transaccion marcada para revision.' : 'Transaccion normal sin senales de anomalia.'),
+    reasons_json: normalizeReasons(tx, categories, isAnomaly),
+    monto,
+    es_abono: tx.es_abono ?? (Number(monto) >= 0 ? 1 : 0),
+    estado: tx.estado ?? 'Pendiente',
+    is_anomaly: isAnomaly,
+    es_nueva: forceNew || truthy(tx.es_nueva),
+  };
+}
+function mergeRecords(base, incoming) {
+  const byId = new Map(base.map(tx => [String(tx.trace_row_id), tx]));
+  incoming.forEach(tx => byId.set(String(tx.trace_row_id), { ...(byId.get(String(tx.trace_row_id)) || {}), ...tx }));
+  return [...byId.values()];
+}
+function anomalyLabel(tx) {
+  const label = isTxAnomaly(tx) ? 'Anomalia' : 'Normal';
+  const cls = isTxAnomaly(tx) ? 'badge-anomalia' : 'badge-normal';
+  return `<span class="badge ${cls}">${label}</span>${tx.es_nueva ? ' <span class="badge badge-nueva">Nueva</span>' : ''}`;
+}
 function fmt(n) {
   const v = Number(n);
   return '$' + (isNaN(v) ? '–' : v.toLocaleString('es-MX', { maximumFractionDigits: 0 }));
@@ -227,7 +322,7 @@ function estadoBadge(e) {
   const cls = { Pendiente:'badge-pendiente', Autorizado:'badge-autorizado', Desestimado:'badge-desestimado', Escalado:'badge-escalado' };
   return `<span class="badge ${cls[e]??'badge-desestimado'}">${e}</span>`;
 }
-function getTx(id) { return DATA.find(d => String(d.trace_row_id) === String(id)); }
+function getTx(id) { return LIST_RECORDS.find(d => String(d.trace_row_id) === String(id)) || DATA.find(d => String(d.trace_row_id) === String(id)); }
 function collectReviewedRows() {
   const rows = [];
   DATA.forEach(tx => {
@@ -241,26 +336,126 @@ async function loadAnomalies() {
   try {
     const res = await fetch('/api/anomalies');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const rows = await res.json();
+    return rows.map((tx, i) => normalizeRecord({ ...tx, is_anomaly: true }, i));
   } catch {
     const res = await fetch('data/anomalies.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const rows = await res.json();
+    return rows.map((tx, i) => normalizeRecord({ ...tx, is_anomaly: true }, i));
   }
+}
+
+async function fetchTransactionsPage({ page = 1, pageSize = PAGE_SIZE } = {}) {
+  const params = new URLSearchParams({
+    filter: filters.txMode === 'anomalias' ? 'anomalias' : 'todas',
+    severidad: filters.severity || '',
+    q: filters.q || filters.folio || filters.cuarto || filters.concepto || '',
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  const res = await fetch(`/api/transactions?${params.toString()}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const payload = await res.json();
+  const records = (payload.records || []).map((tx, i) => normalizeRecord(tx, (page - 1) * pageSize + i));
+  return {
+    records,
+    total: Number(payload.total ?? records.length),
+    page: Number(payload.page ?? page),
+    page_size: Number(payload.page_size ?? pageSize),
+    total_pages: Math.max(1, Number(payload.total_pages ?? Math.ceil((payload.total ?? records.length) / pageSize))),
+    summary: payload.summary || {},
+  };
+}
+
+function filterFallbackRows(rows) {
+  return rows.filter(tx => {
+    if (filters.txMode === 'anomalias' && !isTxAnomaly(tx)) return false;
+    if (filters.q && !matchesQuery(tx, filters.q)) return false;
+    if (filters.severity && tx.severity !== filters.severity) return false;
+    return true;
+  });
+}
+
+async function loadTransactionsForList({ showSpinner = false } = {}) {
+  if (showSpinner) document.getElementById('view-lista').innerHTML = loadingMarkup('Cargando transacciones...');
+
+  if (TX_API_AVAILABLE !== false) {
+    try {
+      const page = await fetchTransactionsPage({ page: listPage, pageSize: PAGE_SIZE });
+      TX_API_AVAILABLE = true;
+      TX_META = page;
+      LIST_RECORDS = page.records;
+      DATA = mergeRecords(DATA, page.records);
+      TX_STATUS = 'Backend /api/transactions';
+      return;
+    } catch (e) {
+      TX_API_AVAILABLE = false;
+      TX_STATUS = 'Fallback local anomalies.json';
+    }
+  }
+
+  if (!FALLBACK_DATA) FALLBACK_DATA = await loadAnomalies();
+  const filtered = filterFallbackRows(FALLBACK_DATA);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  if (listPage > totalPages) listPage = totalPages;
+  LIST_RECORDS = filtered.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
+  TX_META = { total: filtered.length, page: listPage, page_size: PAGE_SIZE, total_pages: totalPages, summary: { total_anomalias: filtered.length } };
+  DATA = FALLBACK_DATA;
+}
+
+async function loadDashboardData() {
+  if (TX_API_AVAILABLE !== false) {
+    const prev = { txMode: filters.txMode, q: filters.q, severity: filters.severity };
+    try {
+      filters.txMode = 'anomalias';
+      filters.q = '';
+      filters.severity = '';
+      const page = await fetchTransactionsPage({ page: 1, pageSize: 200 });
+      TX_API_AVAILABLE = true;
+      DATA = mergeRecords(DATA, page.records);
+      TX_META.summary = { ...(TX_META.summary || {}), ...(page.summary || {}) };
+      TX_META.total = page.total;
+      TX_STATUS = 'Backend /api/transactions';
+      return;
+    } catch (e) {
+      TX_API_AVAILABLE = false;
+      TX_STATUS = 'Fallback local anomalies.json';
+    } finally {
+      filters.txMode = prev.txMode;
+      filters.q = prev.q;
+      filters.severity = prev.severity;
+    }
+  }
+
+  if (!FALLBACK_DATA) FALLBACK_DATA = await loadAnomalies();
+  DATA = FALLBACK_DATA;
+  TX_META = { total: DATA.length, page: 1, page_size: PAGE_SIZE, total_pages: Math.max(1, Math.ceil(DATA.length / PAGE_SIZE)), summary: { total_anomalias: DATA.length } };
+}
+
+function loadingMarkup(label) {
+  return `
+    <div style="display:flex;align-items:center;justify-content:center;padding:80px 20px;color:var(--lt);">
+      <svg class="animate-spin" style="width:18px;height:18px;margin-right:10px;color:var(--r);" fill="none" viewBox="0 0 24 24">
+        <circle style="opacity:0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path style="opacity:0.75;" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+      </svg>
+      <span style="font-size:13px;">${label}</span>
+    </div>`;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 // VIEW SWITCHING
 // ════════════════════════════════════════════════════════════════════════════
-function setView(v) {
+async function setView(v) {
   currentView = v;
   ['dashboard','lista','stats'].forEach(name => {
     document.getElementById(`view-${name}`).classList.toggle('hidden', name !== v);
     const tab = document.getElementById(`tab-${name}`);
     if (tab) tab.className = (name===v?'tab-active':'tab-inactive') + ' px-4 py-4 text-sm transition-colors';
   });
-  if (v === 'dashboard') renderDashboard();
-  if (v === 'lista')     { listPage = 1; renderLista(); }
+  if (v === 'dashboard') { if (DATA.length === 0) await loadDashboardData(); renderDashboard(); }
+  if (v === 'lista')     { listPage = 1; await renderLista({ showSpinner: true }); }
   if (v === 'stats')     renderStats();
 }
 
@@ -268,25 +463,27 @@ function setView(v) {
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════════════════
 function renderDashboard() {
-  const total      = DATA.length;
-  const pendientes = DATA.filter(d => getState(d) === 'Pendiente').length;
-  const revisadas  = DATA.filter(d => ['Autorizado','Desestimado'].includes(getState(d))).length;
-  const escaladas  = DATA.filter(d => getState(d) === 'Escalado').length;
+  const summary = TX_META.summary || {};
+  const total      = Number(summary.total ?? summary.total_transactions ?? TX_META.total ?? DATA.length);
+  const anomalias  = Number(summary.total_anomalias ?? summary.anomalias ?? DATA.filter(isTxAnomaly).length);
+  const pendientes = DATA.filter(d => isTxAnomaly(d) && getState(d) === 'Pendiente').length;
+  const revisadas  = DATA.filter(d => isTxAnomaly(d) && ['Autorizado','Desestimado'].includes(getState(d))).length;
+  const escaladas  = DATA.filter(d => isTxAnomaly(d) && getState(d) === 'Escalado').length;
 
-  const alertas = DATA.filter(d => d.severity === 'Alta' && getState(d) === 'Pendiente')
+  const alertas = DATA.filter(d => isTxAnomaly(d) && d.severity === 'Alta' && getState(d) === 'Pendiente')
     .sort((a,b) => a.anomaly_rank - b.anomaly_rank).slice(0,5);
 
-  const cola = DATA.filter(d => getState(d) === 'Pendiente')
+  const cola = DATA.filter(d => isTxAnomaly(d) && getState(d) === 'Pendiente')
     .sort((a,b) => a.anomaly_rank - b.anomaly_rank).slice(0,10);
 
   document.getElementById('view-dashboard').innerHTML = `
 <div class="fade-in space-y-5">
 
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    ${kpiCard('Total detectadas', total,      IC.chart, 'var(--dk)')}
+    ${kpiCard('Transacciones',     total,      IC.chart, 'var(--dk)')}
+    ${kpiCard('Anomalías',         anomalias,  IC.warn,  'var(--r)')}
     ${kpiCard('Pendientes',        pendientes, IC.clock, 'var(--dk)')}
     ${kpiCard('Revisadas',         revisadas,  IC.check, '#15692b')}
-    ${kpiCard('Escaladas',         escaladas,  IC.up,    '#c2410c')}
   </div>
 
   <div style="background:var(--ca);border:1px solid var(--bo);border-left:3px solid var(--r);overflow:hidden;">
@@ -328,7 +525,7 @@ function renderDashboard() {
             <td style="padding:10px 16px;text-align:right;font-weight:700;color:var(--dk);font-size:13px;">${fmt(tx.monto)}</td>
             <td style="padding:10px 16px;">${sevBadge(tx.severity)}</td>
             <td style="padding:10px 16px;font-size:12px;color:var(--md);max-width:220px;">
-              ${tx.categories.split(' | ').slice(0,2).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;">${catIcon(c)}<span>${c}</span></span>`).join('<span style="color:var(--bd);margin:0 5px;">·</span>')}
+              ${splitCats(tx).slice(0,2).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;">${catIcon(c)}<span>${c}</span></span>`).join('<span style="color:var(--bd);margin:0 5px;">·</span>')}
             </td>
             <td style="padding:10px 16px;text-align:right;">
               <span style="font-size:11px;font-weight:700;color:var(--r);letter-spacing:0.03em;">Revisar →</span>
@@ -355,7 +552,7 @@ function kpiCard(label, value, iconSvg, valueColor) {
 }
 
 function alertaCard(tx) {
-  const cats = tx.categories.split(' | ');
+  const cats = splitCats(tx);
   const icoType = CAT_TYPE[cats[0]] ?? 'info';
   return `
   <div style="display:flex;align-items:flex-start;gap:16px;padding:14px 20px;border-bottom:1px solid var(--bg);cursor:pointer;"
@@ -484,55 +681,243 @@ function limpiarFechaManual() {
   if (currentView === 'stats') renderStats(); else renderLista();
 }
 
+async function applyListFilter() {
+  listPage = 1;
+  await renderLista({ showSpinner: true });
+}
+
+async function refreshCurrentData() {
+  if (currentView === 'lista') {
+    await renderLista({ showSpinner: true });
+  } else {
+    await loadDashboardData();
+    if (currentView === 'dashboard') renderDashboard();
+    if (currentView === 'stats') renderStats();
+  }
+  document.getElementById('badge-total').textContent =
+    TX_API_AVAILABLE ? Number(TX_META.total || 0).toLocaleString('es-MX') : DATA.length;
+}
+
+function setAutoRefreshMinutes(value) {
+  autoRefreshMinutes = Number(value || 0);
+  localStorage.setItem('finanom_auto_refresh_min', String(autoRefreshMinutes));
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = null;
+  if (autoRefreshMinutes > 0) {
+    autoRefreshTimer = setInterval(() => refreshCurrentData(), autoRefreshMinutes * 60 * 1000);
+  }
+}
+
+async function simularTransaccion(scenario) {
+  simulatingScenario = scenario;
+  if (currentView === 'lista') renderLista(); else setView(currentView);
+  try {
+    const res = await fetch('/api/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario }),
+    });
+    const payload = await res.json();
+    if (!res.ok || !payload.transaction) throw new Error(payload.message || `HTTP ${res.status}`);
+    const tx = normalizeRecord(payload.transaction, 0, true);
+    DATA = mergeRecords(DATA, [tx]);
+    LIST_RECORDS = mergeRecords([tx], LIST_RECORDS);
+    filters.txMode = 'todas';
+    listPage = 1;
+    await renderLista({ showSpinner: true });
+    openModal(tx.trace_row_id);
+  } catch (e) {
+    alert(`No se pudo simular la transaccion.\n\n${e.message}`);
+  } finally {
+    simulatingScenario = null;
+    if (currentView === 'lista') renderLista(); else setView(currentView);
+  }
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // LISTA
 // ════════════════════════════════════════════════════════════════════════════
-function renderLista() {
-  const filtered = getFiltered().sort((a,b) => {
+async function renderLista({ showSpinner = false } = {}) {
+  {
+    try {
+      await loadTransactionsForList({ showSpinner });
+    } catch (e) {
+      document.getElementById('view-lista').innerHTML = `
+        <div style="background:var(--rl);border:1px solid var(--rb);border-left:3px solid var(--r);padding:24px;" class="fade-in">
+          <p style="font-size:14px;font-weight:800;color:#b92020;margin-bottom:6px;">No se pudieron cargar las transacciones</p>
+          <p style="font-size:12px;color:#b92020;">${e.message}</p>
+        </div>`;
+      return;
+    }
+
+    const pageRows = LIST_RECORDS;
+    const pageTotal = Number(TX_META.total || pageRows.length);
+    const pageTotalPages = Math.max(1, Number(TX_META.total_pages || 1));
+    const pageHasFilters = filters.q || filters.severity || filters.txMode !== 'todas';
+    const activeAll = filters.txMode === 'todas';
+    document.getElementById('badge-total').textContent = pageTotal.toLocaleString('es-MX');
+
+    document.getElementById('view-lista').innerHTML = `
+<div class="fade-in space-y-4">
+  <div style="background:var(--ca);border:1px solid var(--bo);padding:16px 20px 14px;">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:12px;">
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Vista</span>
+        <div style="display:flex;border:1px solid var(--bo);border-radius:2px;overflow:hidden;background:var(--bg);">
+          <button onclick="filters.txMode='todas';listPage=1;renderLista({showSpinner:true})"
+            style="font-size:11px;font-weight:800;padding:6px 10px;letter-spacing:0.04em;${activeAll?'background:var(--dk);color:#fff;':'background:transparent;color:var(--md);'}">Todas</button>
+          <button onclick="filters.txMode='anomalias';listPage=1;renderLista({showSpinner:true})"
+            style="font-size:11px;font-weight:800;padding:6px 10px;letter-spacing:0.04em;border-left:1px solid var(--bo);${!activeAll?'background:var(--r);color:#fff;':'background:transparent;color:var(--md);'}">Solo anomalías</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;min-width:220px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Buscar</span>
+        <input type="text" value="${escAttr(filters.q)}" placeholder="Folio, cuarto, código o referencia"
+          onkeydown="if(event.key==='Enter'){filters.q=this.value;listPage=1;renderLista({showSpinner:true})}"
+          onblur="if(filters.q!==this.value){filters.q=this.value;listPage=1;renderLista({showSpinner:true})}"
+          style="padding:5px 8px;font-size:12px;border:1px solid ${filters.q?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Severidad</span>
+        <select onchange="filters.severity=this.value;listPage=1;renderLista({showSpinner:true})"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.severity?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;">
+          <option value="">Todas</option>
+          <option value="Alta" ${filters.severity==='Alta'?'selected':''}>Alta</option>
+          <option value="Media" ${filters.severity==='Media'?'selected':''}>Media</option>
+          <option value="Informativa" ${filters.severity==='Informativa'?'selected':''}>Informativa</option>
+        </select>
+      </div>
+      <button onclick="refreshCurrentData()" class="btn-s" style="font-size:11px;padding:6px 12px;">Refresh</button>
+      <button onclick="simularTransaccion('normal')" ${simulatingScenario?'disabled':''} class="btn-s" style="font-size:11px;padding:6px 12px;">${simulatingScenario==='normal'?'Simulando...':'Simular normal'}</button>
+      <button onclick="simularTransaccion('anomala')" ${simulatingScenario?'disabled':''} class="btn-p" style="font-size:11px;padding:6px 12px;">${simulatingScenario==='anomala'?'Simulando...':'Simular anómala'}</button>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Auto-refresh</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="number" min="0" step="1" value="${autoRefreshMinutes || ''}" placeholder="0"
+            onchange="setAutoRefreshMinutes(this.value)"
+            style="padding:5px 8px;width:64px;font-size:12px;border:1px solid ${autoRefreshMinutes?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
+          <span style="font-size:11px;color:var(--lt);">min</span>
+        </div>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:flex-end;gap:12px;padding-bottom:1px;">
+        <span style="font-size:11px;font-weight:600;color:var(--lt);">${pageTotal.toLocaleString('es-MX')} resultado${pageTotal!==1?'s':''}</span>
+        ${pageHasFilters?`<button onclick="resetFilters();listPage=1;renderLista({showSpinner:true})" style="font-size:11px;font-weight:700;color:var(--r);cursor:pointer;letter-spacing:0.04em;">Limpiar</button>`:''}
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--bo);padding-top:10px;font-size:11px;color:var(--lt);">${TX_STATUS}${autoRefreshMinutes ? ` · auto cada ${autoRefreshMinutes} min` : ''}</div>
+  </div>
+
+  <div style="background:var(--ca);border:1px solid var(--bo);overflow:hidden;">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr style="background:var(--bg);border-bottom:1px solid var(--bo);">
+            <th class="th">Etiqueta</th><th class="th">Rango</th><th class="th">Folio</th><th class="th">Cuarto</th>
+            <th class="th">Concepto</th><th class="th" style="text-align:right;">Monto</th>
+            <th class="th">Fecha</th><th class="th">Categorías</th>
+            <th class="th">Severidad</th><th class="th">Estado</th><th style="padding:9px 16px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pageRows.length===0
+            ?`<tr><td colspan="11" style="text-align:center;padding:48px 20px;color:var(--lt);font-size:13px;">
+                Sin resultados. <button onclick="resetFilters();listPage=1;renderLista({showSpinner:true})" style="color:var(--r);text-decoration:underline;cursor:pointer;">Limpiar filtros</button>
+              </td></tr>`
+            :pageRows.map(listaRow).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="border-top:1px solid var(--bo);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:11px;color:var(--lt);">Página ${listPage} de ${pageTotalPages}</span>
+      <div style="display:flex;gap:8px;">
+        <button onclick="if(listPage>1){listPage--;renderLista({showSpinner:true})}" ${listPage<=1?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">← Anterior</button>
+        <button onclick="if(listPage<${pageTotalPages}){listPage++;renderLista({showSpinner:true})}" ${listPage>=pageTotalPages?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">Siguiente →</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+    return;
+  }
+  const source = TX_API_AVAILABLE ? LIST_RECORDS : DATA;
+  const filtered = source.filter(d => {
+    if (TX_API_AVAILABLE && filters.estado && getState(d) !== filters.estado) return false;
+    if (TX_API_AVAILABLE && filters.categoria && !splitCats(d).includes(filters.categoria)) return false;
+    return true;
+  }).filter(d => {
+    if (TX_API_AVAILABLE) return true;
+    return getFiltered().includes(d);
+  });
+  if (!TX_API_AVAILABLE) filtered.sort((a,b) => {
     const da = new Date(String(a.trace_t_timestamp).replace(' ', 'T'));
     const db = new Date(String(b.trace_t_timestamp).replace(' ', 'T'));
     if (!isNaN(da) && !isNaN(db)) return da - db;
     return a.anomaly_rank - b.anomaly_rank;
   });
 
-  const total      = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const total      = TX_API_AVAILABLE ? Number(TX_META.total || filtered.length) : filtered.length;
+  const totalPages = TX_API_AVAILABLE ? Number(TX_META.total_pages || 1) : Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (listPage > totalPages) listPage = totalPages;
-  const pageData   = filtered.slice((listPage-1)*PAGE_SIZE, listPage*PAGE_SIZE);
-  const hasFilters = filters.folio || filters.cuarto || filters.concepto || filters.fechaPreset || filters.categoria || filters.severity || filters.estado;
-  const allCats    = [...new Set(DATA.flatMap(d => d.categories.split(' | ')))].sort();
+  const pageData   = TX_API_AVAILABLE ? filtered : filtered.slice((listPage-1)*PAGE_SIZE, listPage*PAGE_SIZE);
+  const hasFilters = filters.folio || filters.cuarto || filters.concepto || filters.q || filters.fechaPreset || filters.categoria || filters.severity || filters.estado || filters.txMode !== 'todas';
+  const allCats    = [...new Set(DATA.flatMap(d => splitCats(d)))].sort();
 
   document.getElementById('view-lista').innerHTML = `
 <div class="fade-in space-y-4">
 
   <div style="background:var(--ca);border:1px solid var(--bo);padding:16px 20px 14px;">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px;">
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button onclick="filters.txMode='todas';applyListFilter()" class="${filters.txMode==='todas'?'btn-p':'btn-s'}" style="font-size:11px;padding:6px 12px;">Todas</button>
+        <button onclick="filters.txMode='anomalias';applyListFilter()" class="${filters.txMode==='anomalias'?'btn-p':'btn-s'}" style="font-size:11px;padding:6px 12px;">Solo anomalías</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;min-width:220px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Búsqueda</span>
+        <input type="text" value="${escAttr(filters.q)}" placeholder="Folio, cuarto, código o referencia"
+          onkeydown="if(event.key==='Enter'){filters.q=this.value;applyListFilter()}"
+          onblur="if(filters.q!==this.value){filters.q=this.value;applyListFilter()}"
+          style="padding:5px 8px;font-size:12px;border:1px solid ${filters.q?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
+      </div>
+      <button onclick="refreshTransactions()" class="btn-s" style="font-size:11px;padding:6px 12px;">Refresh</button>
+      <button onclick="simularTransaccion('normal')" ${simulatingScenario?'disabled':''} class="btn-s" style="font-size:11px;padding:6px 12px;">${simulatingScenario==='normal'?'Simulando...':'Simular normal'}</button>
+      <button onclick="simularTransaccion('anomala')" ${simulatingScenario?'disabled':''} class="btn-p" style="font-size:11px;padding:6px 12px;">${simulatingScenario==='anomala'?'Simulando...':'Simular anómala'}</button>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Auto-refresh</span>
+        <select onchange="setAutoRefreshMinutes(this.value)" style="padding:5px 10px;font-size:12px;border:1px solid var(--bo);border-radius:2px;background:var(--ca);">
+          <option value="0" ${autoRefreshMinutes===0?'selected':''}>Manual</option>
+          <option value="1" ${autoRefreshMinutes===1?'selected':''}>1 min</option>
+          <option value="5" ${autoRefreshMinutes===5?'selected':''}>5 min</option>
+          <option value="10" ${autoRefreshMinutes===10?'selected':''}>10 min</option>
+        </select>
+      </div>
+      <span style="margin-left:auto;font-size:11px;color:var(--lt);padding-bottom:7px;">${TX_STATUS}</span>
+    </div>
 
     <!-- Búsqueda + conteo -->
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px;">
       <div style="display:flex;flex-direction:column;gap:3px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Folio</span>
         <input type="text" value="${filters.folio.replace(/"/g,'&quot;')}" placeholder="Ej. 12345"
-          onkeydown="if(event.key==='Enter'){filters.folio=this.value;listPage=1;renderLista()}"
-          onblur="if(filters.folio!==this.value){filters.folio=this.value;listPage=1;renderLista()}"
+          onkeydown="if(event.key==='Enter'){filters.folio=this.value;applyListFilter()}"
+          onblur="if(filters.folio!==this.value){filters.folio=this.value;applyListFilter()}"
           style="padding:5px 8px;width:100px;font-size:12px;border:1px solid ${filters.folio?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
       </div>
       <div style="display:flex;flex-direction:column;gap:3px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Cuarto</span>
         <input type="text" value="${filters.cuarto.replace(/"/g,'&quot;')}" placeholder="Ej. 301"
-          onkeydown="if(event.key==='Enter'){filters.cuarto=this.value;listPage=1;renderLista()}"
-          onblur="if(filters.cuarto!==this.value){filters.cuarto=this.value;listPage=1;renderLista()}"
+          onkeydown="if(event.key==='Enter'){filters.cuarto=this.value;applyListFilter()}"
+          onblur="if(filters.cuarto!==this.value){filters.cuarto=this.value;applyListFilter()}"
           style="padding:5px 8px;width:90px;font-size:12px;border:1px solid ${filters.cuarto?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
       </div>
       <div style="display:flex;flex-direction:column;gap:3px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Concepto</span>
         <input type="text" value="${filters.concepto.replace(/"/g,'&quot;')}" placeholder="Código"
-          onkeydown="if(event.key==='Enter'){filters.concepto=this.value;listPage=1;renderLista()}"
-          onblur="if(filters.concepto!==this.value){filters.concepto=this.value;listPage=1;renderLista()}"
+          onkeydown="if(event.key==='Enter'){filters.concepto=this.value;applyListFilter()}"
+          onblur="if(filters.concepto!==this.value){filters.concepto=this.value;applyListFilter()}"
           style="padding:5px 8px;width:130px;font-size:12px;border:1px solid ${filters.concepto?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
       </div>
       <div style="margin-left:auto;display:flex;align-items:flex-end;gap:12px;padding-bottom:1px;">
         <span style="font-size:11px;font-weight:600;color:var(--lt);">${total.toLocaleString('es-MX')} resultado${total!==1?'s':''}</span>
-        ${hasFilters?`<button onclick="filters={folio:'',cuarto:'',concepto:'',fechaPreset:'',fechaDesde:'',fechaHasta:'',categoria:'',severity:'',estado:''};listPage=1;renderLista()" style="font-size:11px;font-weight:700;color:var(--r);cursor:pointer;letter-spacing:0.04em;">Limpiar todo</button>`:''}
+        ${hasFilters?`<button onclick="resetFilters();applyListFilter()" style="font-size:11px;font-weight:700;color:var(--r);cursor:pointer;letter-spacing:0.04em;">Limpiar todo</button>`:''}
       </div>
     </div>
 
@@ -565,7 +950,7 @@ function renderLista() {
 
       <div style="display:flex;flex-direction:column;gap:3px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Severidad</span>
-        <select onchange="filters.severity=this.value;listPage=1;renderLista()"
+        <select onchange="filters.severity=this.value;applyListFilter()"
           style="padding:5px 10px;font-size:12px;border:1px solid ${filters.severity?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;">
           <option value="">Todas</option>
           <option value="Alta"        ${filters.severity==='Alta'       ?'selected':''}>Alta</option>
@@ -621,7 +1006,7 @@ function renderLista() {
         <tbody>
           ${pageData.length===0
             ?`<tr><td colspan="10" style="text-align:center;padding:48px 20px;color:var(--lt);font-size:13px;">
-                Sin resultados. <button onclick="filters={folio:'',cuarto:'',concepto:'',fechaPreset:'',fechaDesde:'',fechaHasta:'',categoria:'',severity:'',estado:''};listPage=1;renderLista()" style="color:var(--r);text-decoration:underline;cursor:pointer;">Limpiar filtros</button>
+                Sin resultados. <button onclick="resetFilters();applyListFilter()" style="color:var(--r);text-decoration:underline;cursor:pointer;">Limpiar filtros</button>
               </td></tr>`
             :pageData.map(listaRow).join('')}
         </tbody>
@@ -630,8 +1015,8 @@ function renderLista() {
     <div style="border-top:1px solid var(--bo);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;">
       <span style="font-size:11px;color:var(--lt);">Página ${listPage} de ${totalPages}</span>
       <div style="display:flex;gap:8px;">
-        <button onclick="if(listPage>1){listPage--;renderLista()}" ${listPage<=1?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">← Anterior</button>
-        <button onclick="if(listPage<${totalPages}){listPage++;renderLista()}" ${listPage>=totalPages?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">Siguiente →</button>
+        <button onclick="if(listPage>1){listPage--;loadTransactionsForList({showSpinner:true}).then(renderLista)}" ${listPage<=1?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">← Anterior</button>
+        <button onclick="if(listPage<${totalPages}){listPage++;loadTransactionsForList({showSpinner:true}).then(renderLista)}" ${listPage>=totalPages?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">Siguiente →</button>
       </div>
     </div>
   </div>
@@ -642,12 +1027,13 @@ function renderLista() {
 
 function listaRow(tx) {
   const estado  = getState(tx);
-  const allCats = tx.categories.split(' | ');
+  const allCats = splitCats(tx);
   const shown   = allCats.slice(0,2);
   const extra   = allCats.length - shown.length;
   return `
-  <tr class="clickable" style="border-bottom:1px solid var(--bg);" onclick="openModal('${tx.trace_row_id}')">
-    <td style="padding:10px 16px;font-size:11px;font-family:monospace;color:var(--lt);">#${tx.anomaly_rank}</td>
+  <tr class="clickable" style="border-bottom:1px solid var(--bg);${tx.es_nueva?'background:#fff7ed;box-shadow:inset 3px 0 0 #ea580c;':''}" onclick="openModal('${tx.trace_row_id}')">
+    <td style="padding:10px 16px;">${anomalyLabel(tx)}</td>
+    <td style="padding:10px 16px;font-size:11px;font-family:monospace;color:var(--lt);">${isTxAnomaly(tx) ? '#'+tx.anomaly_rank : '–'}</td>
     <td style="padding:10px 16px;font-weight:700;color:var(--dk);font-size:13px;">${tx.trace_t_folio}</td>
     <td style="padding:10px 16px;color:var(--md);font-size:12px;">${tx.trace_t_cuarto??'–'}</td>
     <td style="padding:10px 16px;"><code>${tx.trace_t_codigo}</code></td>
@@ -718,7 +1104,8 @@ function renderModal() {
       <div style="flex:1;">
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;">
           ${sevBadge(tx.severity)}
-          <span style="font-size:11px;font-family:monospace;color:var(--lt);">Rango global #${tx.anomaly_rank}</span>
+          ${isTxAnomaly(tx) ? `<span style="font-size:11px;font-family:monospace;color:var(--lt);">Rango global #${tx.anomaly_rank}</span>` : '<span style="font-size:11px;font-family:monospace;color:var(--lt);">Sin alerta</span>'}
+          ${anomalyLabel(tx)}
           ${estadoBadge(estado)}
         </div>
         <h2 style="font-weight:800;color:var(--dk);font-size:15px;line-height:1.3;letter-spacing:-0.01em;">
@@ -745,7 +1132,7 @@ function renderModal() {
 
   <div style="padding:20px 24px;">
     <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:16px;">
-      Por qué el sistema marcó esta transacción
+      ${isTxAnomaly(tx) ? 'Por qué el sistema marcó esta transacción' : 'Detalle de transacción'}
     </p>
     <div style="display:flex;flex-direction:column;gap:16px;">
       ${reasons.length===0
@@ -827,11 +1214,11 @@ function saveNota(id) {
 // ════════════════════════════════════════════════════════════════════════════
 function renderStats() {
   const filtered  = getFiltered();
-  const allCats   = [...new Set(DATA.flatMap(d => d.categories.split(' | ')))].sort();
+  const allCats   = [...new Set(DATA.flatMap(d => splitCats(d)))].sort();
   const hasFilters = filters.fechaPreset || filters.categoria || filters.severity || filters.estado;
 
   const catCounts = {};
-  filtered.forEach(d => { d.categories.split(' | ').forEach(c => { catCounts[c] = (catCounts[c]||0)+1; }); });
+  filtered.forEach(d => { splitCats(d).forEach(c => { catCounts[c] = (catCounts[c]||0)+1; }); });
   const topCats = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
 
   const sevCounts = { Alta:0, Media:0, Informativa:0 };
@@ -1102,10 +1489,10 @@ async function aplicarCorrecciones() {
 
     reviewed.forEach(r=>{delete STATES[r.trace_row_id];});
     saveStates();
-    DATA = await loadAnomalies();
-    document.getElementById('badge-total').textContent = DATA.length;
+    await refreshCurrentData();
+    document.getElementById('badge-total').textContent =
+      TX_API_AVAILABLE ? Number(TX_META.total || 0).toLocaleString('es-MX') : DATA.length;
     status.textContent = `Cola ${result.queue_before.toLocaleString('es-MX')} → ${result.queue_after.toLocaleString('es-MX')}`;
-    setView(currentView);
     alert(`Correcciones aplicadas.\nRevisiones usadas: ${result.labels_used}\nCola: ${result.queue_before.toLocaleString('es-MX')} → ${result.queue_after.toLocaleString('es-MX')}\nMotivo: ${result.threshold_reason}`);
   } catch(e) {
     alert(`No se pudieron aplicar automaticamente.\n\n${e.message}\n\nAsegurate de abrir el dashboard con:\nuv run python model_final/app.py`);
@@ -1132,7 +1519,7 @@ async function init() {
     </div>`;
 
   try {
-    DATA = await loadAnomalies();
+    await loadDashboardData();
   } catch(e) {
     document.getElementById('view-dashboard').innerHTML = `
       <div style="background:var(--rl);border:1px solid var(--rb);border-left:3px solid var(--r);padding:32px;text-align:center;" class="fade-in">
@@ -1147,7 +1534,9 @@ async function init() {
     return;
   }
 
-  document.getElementById('badge-total').textContent = DATA.length;
+  document.getElementById('badge-total').textContent =
+    TX_API_AVAILABLE ? Number(TX_META.total || 0).toLocaleString('es-MX') : DATA.length;
+  setAutoRefreshMinutes(autoRefreshMinutes);
   setView('dashboard');
 }
 

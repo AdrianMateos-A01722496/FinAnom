@@ -92,7 +92,7 @@ def _replace_clusters(tipo: str, clusters: list[str]) -> str:
     return " | ".join(c for c in str(tipo).split(" | ") if c and c in keep)
 
 
-def _duplicate_evidence() -> pd.Series | None:
+def _duplicate_evidence(clean_df: pd.DataFrame | None = None) -> pd.Series | None:
     """Marca duplicados de alta confianza: mismo minuto con subfolio y naturaleza contable.
 
     El duplicado por dia tiene mucho recall, pero mezcla errores reales con cargos legitimos
@@ -101,9 +101,9 @@ def _duplicate_evidence() -> pd.Series | None:
     cols = [
         "t_folio", "t_folio_ext", "t_cuarto", "t_codigo", "t_carabo", "t_monto", "t_timestamp",
     ]
-    if not CLEAN_FILE.exists():
+    if clean_df is None and not CLEAN_FILE.exists():
         return None
-    clean = pd.read_parquet(CLEAN_FILE, columns=cols)
+    clean = clean_df[cols].copy() if clean_df is not None else pd.read_parquet(CLEAN_FILE, columns=cols)
     monto = pd.to_numeric(clean["t_monto"], errors="coerce").fillna(0.0)
     ts = pd.to_datetime(clean["t_timestamp"], errors="coerce")
 
@@ -122,13 +122,16 @@ def _duplicate_evidence() -> pd.Series | None:
     return dup_min.rename("dup_alta_confianza")
 
 
-def _degrade_low_confidence_duplicates(out: pd.DataFrame) -> tuple[np.ndarray, pd.Series]:
+def _degrade_low_confidence_duplicates(
+    out: pd.DataFrame,
+    clean_df: pd.DataFrame | None = None,
+) -> tuple[np.ndarray, pd.Series]:
     """Quita puntaje/categoria DUPLICADO cuando solo hay coincidencia por dia."""
     has_dup = out["tipo_inconsistencia"].str.contains("DUPLICADO", na=False)
     if not has_dup.any():
         return out["rule_score"].to_numpy(), pd.Series(False, index=out.index)
 
-    evidence = _duplicate_evidence()
+    evidence = _duplicate_evidence(clean_df)
     if evidence is None:
         return out["rule_score"].to_numpy(), pd.Series(False, index=out.index)
 
@@ -159,7 +162,11 @@ def _severidad(rule_score: np.ndarray, is_if: np.ndarray, metodo_pago: np.ndarra
     return sev
 
 
-def compute_queue(report: pd.DataFrame, state: dict | None) -> pd.DataFrame:
+def compute_queue(
+    report: pd.DataFrame,
+    state: dict | None,
+    clean_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     """Reaplica umbral del IF + factores de confianza por regla y recomputa la cola.
 
     Sin estado aprendido, reproduce la cola base. Con estado, endurece/afloja segun lo
@@ -168,7 +175,7 @@ def compute_queue(report: pd.DataFrame, state: dict | None) -> pd.DataFrame:
     out = report.copy()
     weights = (state or {}).get("rule_weights", {})
     threshold = (state or {}).get("threshold_score_samples")
-    base_rule_score, hard_dup = _degrade_low_confidence_duplicates(out)
+    base_rule_score, hard_dup = _degrade_low_confidence_duplicates(out, clean_df)
 
     # IF: si hay umbral aprendido, re-marcar; si no, usar la marca base.
     is_if = (out["score_samples"].to_numpy() <= threshold) if threshold is not None \
