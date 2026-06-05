@@ -7,86 +7,118 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
+    :root {
+      --r:  #d64040;
+      --rl: #fdf1f1;
+      --rb: #f0c4c4;
+      --dk: #1a1a1a;
+      --md: #555555;
+      --lt: #8c8c8c;
+      --bg: #f2f1ef;
+      --ca: #ffffff;
+      --bo: #e2e0db;
+      --bd: #cbc8c2;
+    }
     * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; }
-    .tab-active   { color: #2563eb; border-bottom: 2px solid #2563eb; font-weight: 600; }
-    .tab-inactive { color: #64748b; border-bottom: 2px solid transparent; }
-    .tab-inactive:hover { color: #334155; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--dk); }
+    .tab-active   { color: var(--r); border-bottom: 2px solid var(--r); font-weight: 700; }
+    .tab-inactive { color: var(--md); border-bottom: 2px solid transparent; }
+    .tab-inactive:hover { color: var(--dk); }
     #modal-overlay { display: none; }
     #modal-overlay.open { display: flex; }
-    tr.clickable:hover td { background: #f0f9ff !important; cursor: pointer; }
+    tr.clickable:hover td { background: #fdf6f6 !important; cursor: pointer; }
     .fade-in { animation: fadeIn 0.18s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     .shap-fill { transition: width 0.45s ease; }
-    .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-    .badge-alta        { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-    .badge-media       { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
-    .badge-informativa { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-    .badge-pendiente   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-    .badge-autorizado  { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-    .badge-desestimado { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; font-weight: 700; padding: 2px 7px;
+      border-radius: 2px; white-space: nowrap;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .badge-alta        { background: #fdf1f1; color: #b92020; border: 1px solid #f0c4c4; }
+    .badge-media       { background: #fdf9ec; color: #7a5200; border: 1px solid #e8d070; }
+    .badge-informativa { background: #f0fdf4; color: #15692b; border: 1px solid #bbf7d0; }
+    .badge-pendiente   { background: #f5f4f2; color: #3a3a3a; border: 1px solid #d8d5d0; }
+    .badge-autorizado  { background: #f0fdf4; color: #15692b; border: 1px solid #bbf7d0; }
+    .badge-desestimado { background: #f5f4f2; color: #666666; border: 1px solid #d8d5d0; }
     .badge-escalado    { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
-    .sev-dot-alta        { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; display: inline-block; }
-    .sev-dot-media       { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; display: inline-block; }
-    .sev-dot-informativa { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; display: inline-block; }
-    code { font-family: 'Menlo', 'Consolas', monospace; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }
-    textarea:focus, input:focus, select:focus { outline: 2px solid #3b82f6; outline-offset: 1px; }
-    .action-btn-active { ring: 2px; ring-offset: 2px; }
+    .sev-dot-alta        { width: 6px; height: 6px; border-radius: 50%; background: #d64040; display: inline-block; flex-shrink: 0; }
+    .sev-dot-media       { width: 6px; height: 6px; border-radius: 50%; background: #c8940a; display: inline-block; flex-shrink: 0; }
+    .sev-dot-informativa { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; display: inline-block; flex-shrink: 0; }
+    code { font-family: 'Menlo', 'Consolas', monospace; background: #eceae6; padding: 1px 5px; border-radius: 2px; font-size: 0.82em; color: var(--dk); }
+    textarea:focus, input:focus, select:focus { outline: 2px solid var(--r); outline-offset: 1px; }
+    .btn-p {
+      background: var(--r); color: #fff; font-size: 12px; font-weight: 700;
+      padding: 6px 14px; border-radius: 2px; letter-spacing: 0.04em;
+      border: none; cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-p:hover { opacity: 0.86; }
+    .btn-p:disabled { opacity: 0.45; cursor: wait; }
+    .btn-s {
+      background: transparent; color: var(--md); font-size: 12px; font-weight: 600;
+      padding: 6px 14px; border-radius: 2px; border: 1px solid var(--bd);
+      cursor: pointer; transition: background 0.12s;
+    }
+    .btn-s:hover { background: var(--bg); }
+    .btn-s:disabled { opacity: 0.35; cursor: default; }
+    .th { padding: 9px 16px; font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--lt); text-align: left; }
+    .fpill { font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 2px; cursor: pointer; letter-spacing: 0.04em; background: var(--bg); color: var(--md); border: 1px solid var(--bo); transition: all 0.12s; white-space: nowrap; }
+    .fpill:hover { background: var(--bd); color: var(--dk); border-color: var(--bd); }
+    .flatpickr-calendar { border: 1px solid var(--bo) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important; border-radius: 3px !important; font-family: inherit !important; }
+    .flatpickr-months, .flatpickr-month, .flatpickr-weekdays, .flatpickr-weekday { background: var(--dk) !important; color: #fff !important; fill: #fff !important; }
+    .flatpickr-weekday { color: rgba(255,255,255,0.5) !important; }
+    .flatpickr-current-month .flatpickr-monthDropdown-months { background: var(--dk) !important; }
+    .flatpickr-current-month input.cur-year { color: #fff !important; }
+    .flatpickr-prev-month svg, .flatpickr-next-month svg { fill: #fff !important; }
+    .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange,
+    .flatpickr-day.selected:hover, .flatpickr-day.startRange:hover, .flatpickr-day.endRange:hover { background: var(--r) !important; border-color: var(--r) !important; color: #fff !important; }
+    .flatpickr-day.inRange { background: var(--rl) !important; border-color: var(--rl) !important; box-shadow: -5px 0 0 var(--rl), 5px 0 0 var(--rl) !important; color: var(--dk) !important; }
+    .flatpickr-day:hover:not(.selected):not(.startRange):not(.endRange):not(.inRange) { background: var(--bg) !important; }
+    .flatpickr-day.today:not(.selected) { border-color: var(--r) !important; }
   </style>
 </head>
 <body>
 
-<!-- ═══ HEADER ══════════════════════════════════════════════════════════════ -->
-<header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+<!-- HEADER -->
+<header style="background:var(--ca);border-bottom:1px solid var(--bo);" class="sticky top-0 z-30">
   <div class="max-w-7xl mx-auto px-5 flex items-center justify-between h-14">
     <div class="flex items-center gap-3">
-      <div class="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-        <span class="text-white text-xs font-bold">F</span>
-      </div>
-      <span class="font-bold text-slate-800 text-base">FINANOM</span>
-      <span class="text-slate-300">·</span>
-      <span class="text-slate-500 text-sm">Hotel Demo</span>
-      <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">PROTOTIPO</span>
+      <div style="background:var(--dk);color:#fff;font-size:10px;font-weight:900;letter-spacing:0.06em;padding:5px 7px;border-radius:2px;line-height:1;">FA</div>
+      <!--span style="font-weight:800;font-size:14px;letter-spacing:0.1em;color:var(--dk);">FINANOM</span-->
+      <span style="color:var(--bo);font-size:18px;line-height:1;">|</span>
+      <span style="color:var(--lt);font-size:13px;">Hotel Demo</span>
+      <span style="font-size:9px;font-weight:800;letter-spacing:0.1em;color:var(--r);background:var(--rl);border:1px solid var(--rb);padding:2px 7px;border-radius:2px;">PROTOTIPO</span>
     </div>
-
     <nav class="flex gap-1">
-      <button id="tab-dashboard" onclick="setView('dashboard')"
-        class="tab-active px-4 py-4 text-sm transition-colors">Dashboard</button>
-      <button id="tab-lista" onclick="setView('lista')"
-        class="tab-inactive px-4 py-4 text-sm transition-colors">
-        Anomalías <span id="badge-total" class="ml-1 bg-slate-100 text-slate-500 text-xs px-1.5 py-0.5 rounded-full">–</span>
+      <button id="tab-dashboard" onclick="setView('dashboard')" class="tab-active px-4 py-4 text-sm transition-colors">Dashboard</button>
+      <button id="tab-lista" onclick="setView('lista')" class="tab-inactive px-4 py-4 text-sm transition-colors">
+        Anomalías <span id="badge-total" style="background:var(--bg);color:var(--lt);font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:3px;">–</span>
       </button>
-      <button id="tab-stats" onclick="setView('stats')"
-        class="tab-inactive px-4 py-4 text-sm transition-colors">Estadísticas</button>
+      <button id="tab-stats" onclick="setView('stats')" class="tab-inactive px-4 py-4 text-sm transition-colors">Estadísticas</button>
     </nav>
-
-    <div class="flex items-center gap-3">
-      <button id="btn-apply-corrections" onclick="aplicarCorrecciones()"
-        class="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">
-        Aplicar correcciones
-      </button>
-      <button onclick="exportarRevisiones()"
-        class="text-xs font-semibold border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg transition-colors">
-        Exportar CSV
-      </button>
-      <span id="apply-status" class="text-xs text-slate-400 hidden md:inline"></span>
-      <div id="date-display" class="text-xs text-slate-400 hidden md:block"></div>
+    <div class="flex items-center gap-2">
+      <button id="btn-apply-corrections" onclick="aplicarCorrecciones()" class="btn-p">Aplicar correcciones</button>
+      <button onclick="exportarRevisiones()" class="btn-s">Exportar CSV</button>
+      <span id="apply-status" style="font-size:11px;color:var(--lt);" class="hidden md:inline"></span>
+      <div id="date-display" style="font-size:11px;color:var(--lt);" class="hidden md:block"></div>
     </div>
   </div>
 </header>
 
-<!-- ═══ MAIN ════════════════════════════════════════════════════════════════ -->
+<!-- MAIN -->
 <main class="max-w-7xl mx-auto px-5 py-6">
   <div id="view-dashboard"></div>
-  <div id="view-lista"    class="hidden"></div>
-  <div id="view-stats"    class="hidden"></div>
+  <div id="view-lista" class="hidden"></div>
+  <div id="view-stats" class="hidden"></div>
 </main>
 
-<!-- ═══ MODAL ═══════════════════════════════════════════════════════════════ -->
+<!-- MODAL -->
 <div id="modal-overlay"
-     class="fixed inset-0 z-50 bg-black/50 items-start justify-center p-4 pt-10 overflow-y-auto"
+     class="fixed inset-0 z-50 items-start justify-center p-4 pt-10 overflow-y-auto"
+     style="background:rgba(0,0,0,0.42);"
      onclick="if(event.target===this)closeModal()">
-  <div id="modal-box" class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mb-10 fade-in">
+  <div id="modal-box" style="background:var(--ca);border-radius:3px;box-shadow:0 24px 64px rgba(0,0,0,0.16);overflow:hidden;" class="w-full max-w-2xl mb-10 fade-in">
     <div id="modal-content"></div>
   </div>
 </div>
@@ -96,51 +128,85 @@
 // STATE
 // ════════════════════════════════════════════════════════════════════════════
 let DATA       = [];
-let STATES     = JSON.parse(localStorage.getItem('finanom_states') || '{}');  // trace_t_transaccion → { estado, nota }
-function saveStates() { localStorage.setItem('finanom_states', JSON.stringify(STATES)); }
+let STATES     = JSON.parse(localStorage.getItem('finanom_states_v2') || '{}');
+function saveStates() { localStorage.setItem('finanom_states_v2', JSON.stringify(STATES)); }
 let currentView = 'dashboard';
 let selectedTx  = null;
-let filters     = { severity: '', estado: '', search: '' };
+let filters     = { folio: '', cuarto: '', concepto: '', fechaPreset: '', fechaDesde: '', fechaHasta: '', categoria: '', severity: '', estado: '' };
 let listPage    = 1;
 const PAGE_SIZE = 25;
+const MESES     = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let chartSev = null, chartCat = null, chartHr = null;
 
 // ════════════════════════════════════════════════════════════════════════════
-// CONSTANTS
+// SVG ICONS
 // ════════════════════════════════════════════════════════════════════════════
-const CAT_ICONS = {
-  'Posible duplicado':              '🔁',
-  'Monto atipico':                  '💰',
-  'Cargo vs tarifa':                '💰',
-  'Fuera de estancia':              '📅',
-  'Horario inusual':                '🌙',
-  'Proporcion fiscal atipica':      '📊',
-  'Inconsistencia de signo':        '↔️',
-  'Metodo de pago':                 '💳',
-  'Egreso sospechoso':              '🏦',
-  'Patron atipico (modelo)':        '🤖',
-  'Modificacion sospechosa':        '✏️',
-  'Alta densidad de cargos':        '📦',
-  'Cancelacion irregular':          '🚫',
-  'Inconsistencia de reservacion':  '📋',
-  'Sin reservacion enlazada':       '🔗',
-  'Codigo infrecuente':             '❓',
-  'Usuario con baja actividad':     '👤',
-  'Division de cuenta':             '✂️',
-  'Observacion relevante':          '💬',
+const IC = {
+  chart:   `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="0.5"/><rect x="10" y="7" width="4" height="14" rx="0.5"/><rect x="17" y="3" width="4" height="18" rx="0.5"/></svg>`,
+  clock:   `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12,6 12,12 16,14"/></svg>`,
+  check:   `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>`,
+  up:      `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5,12 12,5 19,12"/></svg>`,
+  warn:    `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  search:  `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  list:    `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/></svg>`,
+  close:   `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  finance: `<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>`,
+  time:    `<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>`,
+  copy:    `<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="1"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`,
+  user:    `<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  doc:     `<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>`,
+  info:    `<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
 };
 
-const catIcon = c => CAT_ICONS[c] ?? '⚠️';
+// ════════════════════════════════════════════════════════════════════════════
+// CATEGORY → ICON TYPE
+// ════════════════════════════════════════════════════════════════════════════
+const CAT_TYPE = {
+  'Posible duplicado':             'copy',
+  'Monto atipico':                 'finance',
+  'Cargo vs tarifa':               'finance',
+  'Fuera de estancia':             'time',
+  'Horario inusual':               'time',
+  'Proporcion fiscal atipica':     'finance',
+  'Inconsistencia de signo':       'finance',
+  'Metodo de pago':                'finance',
+  'Egreso sospechoso':             'finance',
+  'Patron atipico (modelo)':       'copy',
+  'Modificacion sospechosa':       'user',
+  'Alta densidad de cargos':       'copy',
+  'Cancelacion irregular':         'doc',
+  'Inconsistencia de reservacion': 'doc',
+  'Sin reservacion enlazada':      'doc',
+  'Codigo infrecuente':            'info',
+  'Usuario con baja actividad':    'user',
+  'Division de cuenta':            'finance',
+  'Observacion relevante':         'info',
+};
+
+const catIcon = c => {
+  const t = CAT_TYPE[c] ?? 'info';
+  return `<span style="color:var(--lt);display:inline-flex;align-items:center;vertical-align:middle;">${IC[t]}</span>`;
+};
 
 // ════════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════════════════════════════════════
-function getState(tx) {
-  return STATES[tx.trace_t_transaccion]?.estado ?? tx.estado;
+function getFiltered() {
+  return DATA.filter(d => {
+    if (filters.folio    && !String(d.trace_t_folio).toLowerCase().includes(filters.folio.toLowerCase())) return false;
+    if (filters.cuarto   && !String(d.trace_t_cuarto??'').toLowerCase().includes(filters.cuarto.toLowerCase())) return false;
+    if (filters.concepto && !String(d.trace_t_codigo).toLowerCase().includes(filters.concepto.toLowerCase())) return false;
+    if (filters.categoria && !d.categories.split(' | ').includes(filters.categoria)) return false;
+    if (filters.severity && d.severity !== filters.severity) return false;
+    if (filters.estado   && getState(d) !== filters.estado)  return false;
+    const txDate = new Date(String(d.trace_t_timestamp).replace(' ', 'T'));
+    if (filters.fechaDesde && (isNaN(txDate) || txDate < parseFechaFiltro(filters.fechaDesde))) return false;
+    if (filters.fechaHasta && (isNaN(txDate) || txDate > parseFechaFiltro(filters.fechaHasta, true))) return false;
+    return true;
+  });
 }
-function getNota(tx) {
-  return STATES[tx.trace_t_transaccion]?.nota ?? '';
-}
+function getState(tx) { return STATES[tx.trace_row_id]?.estado ?? tx.estado; }
+function getNota(tx)  { return STATES[tx.trace_row_id]?.nota  ?? ''; }
 function fmt(n) {
   const v = Number(n);
   return '$' + (isNaN(v) ? '–' : v.toLocaleString('es-MX', { maximumFractionDigits: 0 }));
@@ -149,41 +215,25 @@ function fmtDate(s) {
   if (!s || s === 'None') return '–';
   try {
     const d = new Date(String(s).replace(' ', 'T'));
-    return d.toLocaleString('es-MX', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
+    return d.toLocaleString('es-MX', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
   } catch { return String(s); }
 }
 function sevBadge(sev) {
-  const cls = { Alta: 'badge-alta', Media: 'badge-media', Informativa: 'badge-informativa' };
-  const dot = { Alta: 'sev-dot-alta', Media: 'sev-dot-media', Informativa: 'sev-dot-informativa' };
-  return `<span class="badge ${cls[sev] ?? 'badge-desestimado'}"><span class="${dot[sev] ?? ''}"></span>${sev}</span>`;
+  const cls = { Alta:'badge-alta', Media:'badge-media', Informativa:'badge-informativa' };
+  const dot = { Alta:'sev-dot-alta', Media:'sev-dot-media', Informativa:'sev-dot-informativa' };
+  return `<span class="badge ${cls[sev]??'badge-desestimado'}"><span class="${dot[sev]??''}"></span>${sev}</span>`;
 }
 function estadoBadge(e) {
-  const cls = {
-    Pendiente:   'badge-pendiente',
-    Autorizado:  'badge-autorizado',
-    Desestimado: 'badge-desestimado',
-    Escalado:    'badge-escalado',
-  };
-  return `<span class="badge ${cls[e] ?? 'badge-desestimado'}">${e}</span>`;
+  const cls = { Pendiente:'badge-pendiente', Autorizado:'badge-autorizado', Desestimado:'badge-desestimado', Escalado:'badge-escalado' };
+  return `<span class="badge ${cls[e]??'badge-desestimado'}">${e}</span>`;
 }
-function getTx(id) {
-  return DATA.find(d => String(d.trace_t_transaccion) === String(id));
-}
+function getTx(id) { return DATA.find(d => String(d.trace_row_id) === String(id)); }
 function collectReviewedRows() {
   const rows = [];
   DATA.forEach(tx => {
-    const st = STATES[tx.trace_t_transaccion];
-    if (st && st.estado && st.estado !== 'Pendiente') {
-      rows.push({
-        trace_row_id: tx.trace_row_id,
-        trace_t_transaccion: tx.trace_t_transaccion,
-        estado: st.estado,
-        nota: st.nota || '',
-      });
-    }
+    const st = STATES[tx.trace_row_id];
+    if (st && st.estado && st.estado !== 'Pendiente')
+      rows.push({ trace_row_id: tx.trace_row_id, trace_t_transaccion: tx.trace_t_transaccion, estado: st.estado, nota: st.nota || '' });
   });
   return rows;
 }
@@ -204,11 +254,10 @@ async function loadAnomalies() {
 // ════════════════════════════════════════════════════════════════════════════
 function setView(v) {
   currentView = v;
-  ['dashboard', 'lista', 'stats'].forEach(name => {
+  ['dashboard','lista','stats'].forEach(name => {
     document.getElementById(`view-${name}`).classList.toggle('hidden', name !== v);
     const tab = document.getElementById(`tab-${name}`);
-    if (tab) tab.className = (name === v ? 'tab-active' : 'tab-inactive') +
-      ' px-4 py-4 text-sm transition-colors';
+    if (tab) tab.className = (name===v?'tab-active':'tab-inactive') + ' px-4 py-4 text-sm transition-colors';
   });
   if (v === 'dashboard') renderDashboard();
   if (v === 'lista')     { listPage = 1; renderLista(); }
@@ -216,7 +265,7 @@ function setView(v) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// DASHBOARD TAB
+// DASHBOARD
 // ════════════════════════════════════════════════════════════════════════════
 function renderDashboard() {
   const total      = DATA.length;
@@ -224,81 +273,65 @@ function renderDashboard() {
   const revisadas  = DATA.filter(d => ['Autorizado','Desestimado'].includes(getState(d))).length;
   const escaladas  = DATA.filter(d => getState(d) === 'Escalado').length;
 
-  const alertas = DATA
-    .filter(d => d.severity === 'Alta' && getState(d) === 'Pendiente')
-    .sort((a, b) => a.anomaly_rank - b.anomaly_rank)
-    .slice(0, 5);
+  const alertas = DATA.filter(d => d.severity === 'Alta' && getState(d) === 'Pendiente')
+    .sort((a,b) => a.anomaly_rank - b.anomaly_rank).slice(0,5);
 
-  const cola = DATA
-    .filter(d => getState(d) === 'Pendiente')
-    .sort((a, b) => a.anomaly_rank - b.anomaly_rank)
-    .slice(0, 10);
+  const cola = DATA.filter(d => getState(d) === 'Pendiente')
+    .sort((a,b) => a.anomaly_rank - b.anomaly_rank).slice(0,10);
 
   document.getElementById('view-dashboard').innerHTML = `
 <div class="fade-in space-y-5">
 
-  <!-- KPI cards -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    ${kpiCard('Total detectadas', total,      'text-slate-800', '#dbeafe', '📊')}
-    ${kpiCard('Pendientes',        pendientes, 'text-blue-700',  '#eff6ff', '⏳')}
-    ${kpiCard('Revisadas',         revisadas,  'text-green-700', '#f0fdf4', '✅')}
-    ${kpiCard('Escaladas',         escaladas,  'text-orange-600','#fff7ed', '↑')}
+    ${kpiCard('Total detectadas', total,      IC.chart, 'var(--dk)')}
+    ${kpiCard('Pendientes',        pendientes, IC.clock, 'var(--dk)')}
+    ${kpiCard('Revisadas',         revisadas,  IC.check, '#15692b')}
+    ${kpiCard('Escaladas',         escaladas,  IC.up,    '#c2410c')}
   </div>
 
-  <!-- Alertas urgentes -->
-  <div class="bg-white rounded-xl border border-red-100 overflow-hidden shadow-sm">
-    <div class="flex items-center gap-2 px-5 py-3 bg-red-50 border-b border-red-100">
-      <span class="text-red-500 text-base">⚠</span>
-      <span class="text-sm font-semibold text-red-700">ALERTAS — ALTA PRIORIDAD PENDIENTES</span>
-      <span class="ml-auto text-xs font-medium text-red-500 bg-red-100 px-2 py-0.5 rounded-full">
-        ${alertas.length} sin revisar
-      </span>
+  <div style="background:var(--ca);border:1px solid var(--bo);border-left:3px solid var(--r);overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:8px;padding:11px 20px;background:var(--rl);border-bottom:1px solid var(--rb);">
+      <span style="color:var(--r);display:flex;">${IC.warn}</span>
+      <span style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#b92020;">ALERTAS — ALTA PRIORIDAD PENDIENTES</span>
+      <span style="margin-left:auto;font-size:10px;font-weight:700;color:#b92020;background:#fbe4e4;padding:2px 9px;border-radius:2px;">${alertas.length} sin revisar</span>
     </div>
-    <div class="divide-y divide-slate-50">
+    <div>
       ${alertas.length === 0
-        ? '<p class="text-sm text-slate-400 italic px-5 py-4">Sin alertas de alta prioridad pendientes.</p>'
+        ? '<p style="font-size:13px;color:var(--lt);font-style:italic;padding:16px 20px;">Sin alertas de alta prioridad pendientes.</p>'
         : alertas.map(alertaCard).join('')}
     </div>
   </div>
 
-  <!-- Cola de revisión -->
-  <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-    <div class="flex items-center gap-2 px-5 py-3 border-b border-slate-100">
-      <span class="text-sm font-semibold text-slate-700">📋 COLA DE REVISIÓN</span>
-      <span class="text-xs text-slate-400">primeras 10 por prioridad</span>
-      <button onclick="setView('lista')"
-        class="ml-auto text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium">
-        Ver todas →
-      </button>
+  <div style="background:var(--ca);border:1px solid var(--bo);overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:8px;padding:11px 20px;border-bottom:1px solid var(--bo);">
+      <span style="color:var(--lt);display:flex;">${IC.list}</span>
+      <span style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--md);">COLA DE REVISIÓN</span>
+      <span style="font-size:12px;color:var(--lt);margin-left:4px;">primeras 10 por prioridad</span>
+      <button onclick="setView('lista')" style="margin-left:auto;font-size:12px;font-weight:700;color:var(--r);cursor:pointer;letter-spacing:0.02em;">Ver todas →</button>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
-          <tr class="bg-slate-50 text-left text-xs text-slate-400 uppercase tracking-wide">
-            <th class="px-4 py-2.5">Rango</th>
-            <th class="px-4 py-2.5">Folio</th>
-            <th class="px-4 py-2.5">Cuarto</th>
-            <th class="px-4 py-2.5">Concepto</th>
-            <th class="px-4 py-2.5 text-right">Monto</th>
-            <th class="px-4 py-2.5">Severidad</th>
-            <th class="px-4 py-2.5">Categorías principales</th>
-            <th class="px-4 py-2.5"></th>
+          <tr style="background:var(--bg);border-bottom:1px solid var(--bo);">
+            <th class="th">Rango</th><th class="th">Folio</th><th class="th">Cuarto</th>
+            <th class="th">Concepto</th><th class="th" style="text-align:right;">Monto</th>
+            <th class="th">Severidad</th><th class="th">Categorías</th><th style="padding:9px 16px;"></th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-50">
+        <tbody>
           ${cola.map(tx => `
-          <tr class="clickable" onclick="openModal('${tx.trace_t_transaccion}')">
-            <td class="px-4 py-2.5 text-xs font-mono text-slate-400">#${tx.anomaly_rank}</td>
-            <td class="px-4 py-2.5 font-semibold text-slate-800">${tx.trace_t_folio}</td>
-            <td class="px-4 py-2.5 text-slate-600 text-xs">${tx.trace_t_cuarto ?? '–'}</td>
-            <td class="px-4 py-2.5"><code>${tx.trace_t_codigo}</code></td>
-            <td class="px-4 py-2.5 text-right font-semibold text-slate-800">${fmt(tx.monto)}</td>
-            <td class="px-4 py-2.5">${sevBadge(tx.severity)}</td>
-            <td class="px-4 py-2.5 text-xs text-slate-500 max-w-xs">
-              ${tx.categories.split(' | ').slice(0, 2).map(c => catIcon(c) + ' ' + c).join('  ·  ')}
+          <tr class="clickable" style="border-bottom:1px solid var(--bg);" onclick="openModal('${tx.trace_row_id}')">
+            <td style="padding:10px 16px;font-size:11px;font-family:monospace;color:var(--lt);">#${tx.anomaly_rank}</td>
+            <td style="padding:10px 16px;font-weight:700;color:var(--dk);font-size:13px;">${tx.trace_t_folio}</td>
+            <td style="padding:10px 16px;color:var(--md);font-size:12px;">${tx.trace_t_cuarto??'–'}</td>
+            <td style="padding:10px 16px;"><code>${tx.trace_t_codigo}</code></td>
+            <td style="padding:10px 16px;text-align:right;font-weight:700;color:var(--dk);font-size:13px;">${fmt(tx.monto)}</td>
+            <td style="padding:10px 16px;">${sevBadge(tx.severity)}</td>
+            <td style="padding:10px 16px;font-size:12px;color:var(--md);max-width:220px;">
+              ${tx.categories.split(' | ').slice(0,2).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;">${catIcon(c)}<span>${c}</span></span>`).join('<span style="color:var(--bd);margin:0 5px;">·</span>')}
             </td>
-            <td class="px-4 py-2.5 text-right">
-              <span class="text-xs text-blue-600 font-medium">Revisar →</span>
+            <td style="padding:10px 16px;text-align:right;">
+              <span style="font-size:11px;font-weight:700;color:var(--r);letter-spacing:0.03em;">Revisar →</span>
             </td>
           </tr>`).join('')}
         </tbody>
@@ -309,174 +342,336 @@ function renderDashboard() {
 </div>`;
 }
 
-function kpiCard(label, value, textColor, bgColor, icon) {
+function kpiCard(label, value, iconSvg, valueColor) {
   return `
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs text-slate-400 uppercase tracking-wide font-medium mb-1.5">${label}</p>
-        <p class="text-3xl font-bold ${textColor}">${value}</p>
-      </div>
-      <span class="text-2xl p-2 rounded-lg" style="background:${bgColor}">${icon}</span>
+  <div style="background:var(--ca);border:1px solid var(--bo);padding:20px 22px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+      <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);">${label}</p>
+      <span style="background:var(--bg);color:var(--lt);padding:6px;border-radius:2px;display:flex;">${iconSvg}</span>
     </div>
+    <p style="font-size:38px;font-weight:800;color:${valueColor};line-height:1;margin-bottom:10px;">${value}</p>
+    <div style="width:20px;height:2px;background:var(--r);"></div>
   </div>`;
 }
 
 function alertaCard(tx) {
   const cats = tx.categories.split(' | ');
+  const icoType = CAT_TYPE[cats[0]] ?? 'info';
   return `
-  <div class="flex items-start gap-4 px-5 py-4 hover:bg-slate-50 cursor-pointer transition-colors"
-       onclick="openModal('${tx.trace_t_transaccion}')">
-    <span class="text-2xl flex-shrink-0 mt-0.5">${catIcon(cats[0])}</span>
-    <div class="flex-1 min-w-0">
-      <div class="flex flex-wrap items-center gap-2 mb-1">
-        <span class="font-semibold text-slate-800 text-sm">Folio ${tx.trace_t_folio}</span>
+  <div style="display:flex;align-items:flex-start;gap:16px;padding:14px 20px;border-bottom:1px solid var(--bg);cursor:pointer;"
+       onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''"
+       onclick="openModal('${tx.trace_row_id}')">
+    <span style="color:var(--lt);display:flex;flex-shrink:0;margin-top:2px;">${IC[icoType]}</span>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:4px;">
+        <span style="font-weight:700;color:var(--dk);font-size:13px;">Folio ${tx.trace_t_folio}</span>
         <code>${tx.trace_t_codigo}</code>
-        <span class="font-bold text-slate-900">${fmt(tx.monto)}</span>
-        <span class="text-xs text-slate-400">${fmtDate(tx.trace_t_timestamp)}</span>
+        <span style="font-weight:800;color:var(--dk);font-size:13px;">${fmt(tx.monto)}</span>
+        <span style="font-size:11px;color:var(--lt);">${fmtDate(tx.trace_t_timestamp)}</span>
       </div>
-      <p class="text-sm text-slate-600 leading-snug">${tx.explanation}</p>
+      <p style="font-size:13px;color:var(--md);line-height:1.5;">${tx.explanation}</p>
     </div>
-    <button onclick="event.stopPropagation(); openModal('${tx.trace_t_transaccion}')"
-      class="flex-shrink-0 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
-      Revisar
-    </button>
+    <button onclick="event.stopPropagation();openModal('${tx.trace_row_id}')" class="btn-p" style="flex-shrink:0;font-size:11px;">Revisar</button>
   </div>`;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// LISTA TAB
+// FECHA PRESET
+// ════════════════════════════════════════════════════════════════════════════
+function setFechaPreset(preset) {
+  filters.fechaPreset = preset;
+  const now   = new Date();
+  const toISO = localISO;
+  const today = toISO(now);
+  if (preset === '') {
+    filters.fechaDesde = ''; filters.fechaHasta = '';
+  } else if (preset === 'hoy') {
+    filters.fechaDesde = today; filters.fechaHasta = today;
+  } else if (preset === 'semana') {
+    const d = new Date(now); const day = d.getDay() || 7;
+    d.setDate(d.getDate() - day + 1);
+    filters.fechaDesde = toISO(d); filters.fechaHasta = today;
+  } else if (preset === 'mes') {
+    filters.fechaDesde = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    filters.fechaHasta = today;
+  } else if (preset === 'mes_ant') {
+    const last  = new Date(now.getFullYear(), now.getMonth(), 0);
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    filters.fechaDesde = toISO(first); filters.fechaHasta = toISO(last);
+  } else if (preset === 'personalizado') {
+    filters.fechaDesde = ''; filters.fechaHasta = '';
+  }
+  listPage = 1;
+  if (currentView === 'stats') renderStats(); else renderLista();
+}
+function localISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function parseFechaFiltro(dateStr, finDelDia = false) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d, finDelDia ? 23 : 0, finDelDia ? 59 : 0, finDelDia ? 59 : 0);
+}
+
+function isoToDisplay(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return '';
+  return `${d}/${m}/${y}`;
+}
+
+function parseFechaManual(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  // Acepta formato YYYY-MM-DD
+  let m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    const dt = new Date(y, mo - 1, d);
+    if (dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d) {
+      return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+  }
+
+  // Acepta formato DD/MM/YYYY o DD-MM-YYYY
+  m = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (m) {
+    const d = Number(m[1]);
+    const mo = Number(m[2]);
+    const y = Number(m[3]);
+    const dt = new Date(y, mo - 1, d);
+    if (dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d) {
+      return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+  }
+
+  alert('Formato de fecha inválido. Usa DD/MM/AAAA. Ejemplo: 12/03/2021');
+  return null;
+}
+
+function aplicarFechaManual() {
+  const desdeInput = document.getElementById('fecha-desde-manual');
+  const hastaInput = document.getElementById('fecha-hasta-manual');
+  if (!desdeInput || !hastaInput) return;
+
+  const desde = parseFechaManual(desdeInput.value);
+  const hasta = parseFechaManual(hastaInput.value);
+
+  if (desde === null || hasta === null) return;
+
+  filters.fechaDesde = desde;
+  filters.fechaHasta = hasta;
+
+  if (filters.fechaDesde && filters.fechaHasta && parseFechaFiltro(filters.fechaDesde) > parseFechaFiltro(filters.fechaHasta, true)) {
+    alert('La fecha inicial no puede ser mayor que la fecha final.');
+    return;
+  }
+
+  listPage = 1;
+  if (currentView === 'stats') renderStats(); else renderLista();
+}
+
+function limpiarFechaManual() {
+  filters.fechaDesde = '';
+  filters.fechaHasta = '';
+  listPage = 1;
+  if (currentView === 'stats') renderStats(); else renderLista();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LISTA
 // ════════════════════════════════════════════════════════════════════════════
 function renderLista() {
-  const filtered = DATA.filter(d => {
-    if (filters.severity && d.severity !== filters.severity) return false;
-    if (filters.estado   && getState(d) !== filters.estado)  return false;
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      if (!String(d.trace_t_folio).includes(q) &&
-          !String(d.trace_t_codigo).toLowerCase().includes(q) &&
-          !String(d.trace_t_cuarto ?? '').includes(q)) return false;
-    }
-    return true;
-  }).sort((a, b) => a.anomaly_rank - b.anomaly_rank);
+  const filtered = getFiltered().sort((a,b) => {
+    const da = new Date(String(a.trace_t_timestamp).replace(' ', 'T'));
+    const db = new Date(String(b.trace_t_timestamp).replace(' ', 'T'));
+    if (!isNaN(da) && !isNaN(db)) return da - db;
+    return a.anomaly_rank - b.anomaly_rank;
+  });
 
   const total      = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (listPage > totalPages) listPage = totalPages;
-  const pageData = filtered.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
-  const hasFilters = filters.severity || filters.estado || filters.search;
+  const pageData   = filtered.slice((listPage-1)*PAGE_SIZE, listPage*PAGE_SIZE);
+  const hasFilters = filters.folio || filters.cuarto || filters.concepto || filters.fechaPreset || filters.categoria || filters.severity || filters.estado;
+  const allCats    = [...new Set(DATA.flatMap(d => d.categories.split(' | ')))].sort();
 
   document.getElementById('view-lista').innerHTML = `
 <div class="fade-in space-y-4">
 
-  <!-- Filter bar -->
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex flex-wrap gap-3 items-center">
-    <div class="relative">
-      <span class="absolute left-2.5 top-2 text-slate-400 text-sm">🔍</span>
-      <input type="text" placeholder="Folio, concepto, cuarto..."
-        value="${filters.search.replace(/"/g,'&quot;')}"
-        oninput="filters.search=this.value; listPage=1; renderLista()"
-        class="border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm w-60">
+  <div style="background:var(--ca);border:1px solid var(--bo);padding:16px 20px 14px;">
+
+    <!-- Búsqueda + conteo -->
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px;">
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Folio</span>
+        <input type="text" value="${filters.folio.replace(/"/g,'&quot;')}" placeholder="Ej. 12345"
+          onkeydown="if(event.key==='Enter'){filters.folio=this.value;listPage=1;renderLista()}"
+          onblur="if(filters.folio!==this.value){filters.folio=this.value;listPage=1;renderLista()}"
+          style="padding:5px 8px;width:100px;font-size:12px;border:1px solid ${filters.folio?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Cuarto</span>
+        <input type="text" value="${filters.cuarto.replace(/"/g,'&quot;')}" placeholder="Ej. 301"
+          onkeydown="if(event.key==='Enter'){filters.cuarto=this.value;listPage=1;renderLista()}"
+          onblur="if(filters.cuarto!==this.value){filters.cuarto=this.value;listPage=1;renderLista()}"
+          style="padding:5px 8px;width:90px;font-size:12px;border:1px solid ${filters.cuarto?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Concepto</span>
+        <input type="text" value="${filters.concepto.replace(/"/g,'&quot;')}" placeholder="Código"
+          onkeydown="if(event.key==='Enter'){filters.concepto=this.value;listPage=1;renderLista()}"
+          onblur="if(filters.concepto!==this.value){filters.concepto=this.value;listPage=1;renderLista()}"
+          style="padding:5px 8px;width:130px;font-size:12px;border:1px solid ${filters.concepto?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:flex-end;gap:12px;padding-bottom:1px;">
+        <span style="font-size:11px;font-weight:600;color:var(--lt);">${total.toLocaleString('es-MX')} resultado${total!==1?'s':''}</span>
+        ${hasFilters?`<button onclick="filters={folio:'',cuarto:'',concepto:'',fechaPreset:'',fechaDesde:'',fechaHasta:'',categoria:'',severity:'',estado:''};listPage=1;renderLista()" style="font-size:11px;font-weight:700;color:var(--r);cursor:pointer;letter-spacing:0.04em;">Limpiar todo</button>`:''}
+      </div>
     </div>
-    <select onchange="filters.severity=this.value; listPage=1; renderLista()"
-      class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white">
-      <option value="" ${!filters.severity?'selected':''}>Todas las severidades</option>
-      <option value="Alta"        ${filters.severity==='Alta'?'selected':''}>🔴 Alta</option>
-      <option value="Media"       ${filters.severity==='Media'?'selected':''}>🟡 Media</option>
-      <option value="Informativa" ${filters.severity==='Informativa'?'selected':''}>🟢 Informativa</option>
-    </select>
-    <select onchange="filters.estado=this.value; listPage=1; renderLista()"
-      class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white">
-      <option value=""            ${!filters.estado?'selected':''}>Todos los estados</option>
-      <option value="Pendiente"   ${filters.estado==='Pendiente'?'selected':''}>Pendiente</option>
-      <option value="Autorizado"  ${filters.estado==='Autorizado'?'selected':''}>Autorizado</option>
-      <option value="Desestimado" ${filters.estado==='Desestimado'?'selected':''}>Desestimado</option>
-      <option value="Escalado"    ${filters.estado==='Escalado'?'selected':''}>Escalado</option>
-    </select>
-    ${hasFilters ? `<button onclick="filters={severity:'',estado:'',search:''}; listPage=1; renderLista()"
-      class="text-xs text-slate-500 hover:text-slate-700 underline">✕ Limpiar</button>` : ''}
-    <span class="ml-auto text-xs text-slate-400 font-medium">${total.toLocaleString('es-MX')} resultado${total!==1?'s':''}</span>
+
+    <div style="border-top:1px solid var(--bo);margin-bottom:14px;"></div>
+
+    <!-- Dropdowns de filtro -->
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Fecha</span>
+        <select onchange="setFechaPreset(this.value)"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.fechaPreset?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;">
+          <option value="">Todas las fechas</option>
+          <option value="hoy"          ${filters.fechaPreset==='hoy'         ?'selected':''}>Hoy</option>
+          <option value="semana"       ${filters.fechaPreset==='semana'      ?'selected':''}>Esta semana</option>
+          <option value="mes"          ${filters.fechaPreset==='mes'         ?'selected':''}>Este mes</option>
+          <option value="mes_ant"      ${filters.fechaPreset==='mes_ant'     ?'selected':''}>Mes anterior</option>
+          <option value="personalizado"${filters.fechaPreset==='personalizado'?'selected':''}>Personalizado…</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Categoría</span>
+        <select onchange="filters.categoria=this.value;listPage=1;renderLista()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.categoria?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;max-width:230px;">
+          <option value="">Todas las categorías</option>
+          ${allCats.map(c=>`<option value="${c}" ${filters.categoria===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Severidad</span>
+        <select onchange="filters.severity=this.value;listPage=1;renderLista()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.severity?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;">
+          <option value="">Todas</option>
+          <option value="Alta"        ${filters.severity==='Alta'       ?'selected':''}>Alta</option>
+          <option value="Media"       ${filters.severity==='Media'      ?'selected':''}>Media</option>
+          <option value="Informativa" ${filters.severity==='Informativa'?'selected':''}>Informativa</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Estado</span>
+        <select onchange="filters.estado=this.value;listPage=1;renderLista()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.estado?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;">
+          <option value="">Todos</option>
+          <option value="Pendiente"   ${filters.estado==='Pendiente'   ?'selected':''}>Pendiente</option>
+          <option value="Autorizado"  ${filters.estado==='Autorizado'  ?'selected':''}>Autorizado</option>
+          <option value="Desestimado" ${filters.estado==='Desestimado' ?'selected':''}>Desestimado</option>
+          <option value="Escalado"    ${filters.estado==='Escalado'    ?'selected':''}>Escalado</option>
+        </select>
+      </div>
+
+      ${filters.fechaPreset === 'personalizado' ? `
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Desde</span>
+        <input id="fecha-desde-manual" type="text" value="${isoToDisplay(filters.fechaDesde)}" placeholder="dd/mm/aaaa"
+          onkeydown="if(event.key==='Enter')aplicarFechaManual()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.fechaDesde?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);width:128px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Hasta</span>
+        <input id="fecha-hasta-manual" type="text" value="${isoToDisplay(filters.fechaHasta)}" placeholder="dd/mm/aaaa"
+          onkeydown="if(event.key==='Enter')aplicarFechaManual()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.fechaHasta?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);width:128px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;color:transparent;">·</span>
+        <button onclick="aplicarFechaManual()" class="btn-p" style="font-size:12px;padding:5px 14px;">Aplicar</button>
+      </div>` : ''}
+
+    </div>
   </div>
 
-  <!-- Table -->
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+  <div style="background:var(--ca);border:1px solid var(--bo);overflow:hidden;">
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
-          <tr class="bg-slate-50 text-left text-xs text-slate-400 uppercase tracking-wide border-b border-slate-200">
-            <th class="px-4 py-3">Rango</th>
-            <th class="px-4 py-3">Folio</th>
-            <th class="px-4 py-3">Cuarto</th>
-            <th class="px-4 py-3">Concepto</th>
-            <th class="px-4 py-3 text-right">Monto</th>
-            <th class="px-4 py-3">Fecha</th>
-            <th class="px-4 py-3">Categorías detectadas</th>
-            <th class="px-4 py-3">Severidad</th>
-            <th class="px-4 py-3">Estado</th>
-            <th class="px-4 py-3"></th>
+          <tr style="background:var(--bg);border-bottom:1px solid var(--bo);">
+            <th class="th">Rango</th><th class="th">Folio</th><th class="th">Cuarto</th>
+            <th class="th">Concepto</th><th class="th" style="text-align:right;">Monto</th>
+            <th class="th">Fecha</th><th class="th">Categorías</th>
+            <th class="th">Severidad</th><th class="th">Estado</th><th style="padding:9px 16px;"></th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
-          ${pageData.length === 0
-            ? `<tr><td colspan="10" class="text-center py-12 text-slate-400">
-                Sin resultados. <button onclick="filters={severity:'',estado:'',search:''}; listPage=1; renderLista()"
-                  class="underline text-blue-500">Limpiar filtros</button>
-               </td></tr>`
-            : pageData.map(listaRow).join('')}
+        <tbody>
+          ${pageData.length===0
+            ?`<tr><td colspan="10" style="text-align:center;padding:48px 20px;color:var(--lt);font-size:13px;">
+                Sin resultados. <button onclick="filters={folio:'',cuarto:'',concepto:'',fechaPreset:'',fechaDesde:'',fechaHasta:'',categoria:'',severity:'',estado:''};listPage=1;renderLista()" style="color:var(--r);text-decoration:underline;cursor:pointer;">Limpiar filtros</button>
+              </td></tr>`
+            :pageData.map(listaRow).join('')}
         </tbody>
       </table>
     </div>
-    <!-- Pagination -->
-    <div class="border-t border-slate-100 px-5 py-3 flex items-center justify-between">
-      <span class="text-xs text-slate-400">Página ${listPage} de ${totalPages}</span>
-      <div class="flex gap-2">
-        <button onclick="if(listPage>1){listPage--;renderLista()}" ${listPage<=1?'disabled':''}
-          class="text-xs px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-default transition-colors">
-          ← Anterior
-        </button>
-        <button onclick="if(listPage<${totalPages}){listPage++;renderLista()}" ${listPage>=totalPages?'disabled':''}
-          class="text-xs px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-default transition-colors">
-          Siguiente →
-        </button>
+    <div style="border-top:1px solid var(--bo);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:11px;color:var(--lt);">Página ${listPage} de ${totalPages}</span>
+      <div style="display:flex;gap:8px;">
+        <button onclick="if(listPage>1){listPage--;renderLista()}" ${listPage<=1?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">← Anterior</button>
+        <button onclick="if(listPage<${totalPages}){listPage++;renderLista()}" ${listPage>=totalPages?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">Siguiente →</button>
       </div>
     </div>
   </div>
 
 </div>`;
+
 }
 
 function listaRow(tx) {
-  const estado = getState(tx);
+  const estado  = getState(tx);
   const allCats = tx.categories.split(' | ');
-  const shown   = allCats.slice(0, 2);
+  const shown   = allCats.slice(0,2);
   const extra   = allCats.length - shown.length;
   return `
-  <tr class="clickable" onclick="openModal('${tx.trace_t_transaccion}')">
-    <td class="px-4 py-3 text-xs font-mono text-slate-400">#${tx.anomaly_rank}</td>
-    <td class="px-4 py-3 font-semibold text-slate-800">${tx.trace_t_folio}</td>
-    <td class="px-4 py-3 text-slate-500 text-xs">${tx.trace_t_cuarto ?? '–'}</td>
-    <td class="px-4 py-3"><code>${tx.trace_t_codigo}</code></td>
-    <td class="px-4 py-3 text-right font-semibold text-slate-800">${fmt(tx.monto)}</td>
-    <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">${fmtDate(tx.trace_t_timestamp)}</td>
-    <td class="px-4 py-3">
-      <div class="flex flex-wrap gap-1">
-        ${shown.map(c => `
-          <span class="text-xs border border-slate-200 bg-slate-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">
-            ${catIcon(c)} ${c}
+  <tr class="clickable" style="border-bottom:1px solid var(--bg);" onclick="openModal('${tx.trace_row_id}')">
+    <td style="padding:10px 16px;font-size:11px;font-family:monospace;color:var(--lt);">#${tx.anomaly_rank}</td>
+    <td style="padding:10px 16px;font-weight:700;color:var(--dk);font-size:13px;">${tx.trace_t_folio}</td>
+    <td style="padding:10px 16px;color:var(--md);font-size:12px;">${tx.trace_t_cuarto??'–'}</td>
+    <td style="padding:10px 16px;"><code>${tx.trace_t_codigo}</code></td>
+    <td style="padding:10px 16px;text-align:right;font-weight:700;color:var(--dk);font-size:13px;">${fmt(tx.monto)}</td>
+    <td style="padding:10px 16px;font-size:11px;color:var(--lt);white-space:nowrap;">${fmtDate(tx.trace_t_timestamp)}</td>
+    <td style="padding:10px 16px;">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        ${shown.map(c=>`
+          <span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;background:var(--bg);border:1px solid var(--bo);padding:2px 7px;border-radius:2px;color:var(--md);white-space:nowrap;">
+            ${catIcon(c)}<span>${c}</span>
           </span>`).join('')}
-        ${extra > 0 ? `<span class="text-xs text-slate-400 self-center">+${extra}</span>` : ''}
+        ${extra>0?`<span style="font-size:11px;color:var(--lt);align-self:center;">+${extra}</span>`:''}
       </div>
     </td>
-    <td class="px-4 py-3">${sevBadge(tx.severity)}</td>
-    <td class="px-4 py-3">${estadoBadge(estado)}</td>
-    <td class="px-4 py-3 text-right">
-      <span class="text-xs text-blue-500 font-medium whitespace-nowrap">Ver →</span>
+    <td style="padding:10px 16px;">${sevBadge(tx.severity)}</td>
+    <td style="padding:10px 16px;">${estadoBadge(estado)}</td>
+    <td style="padding:10px 16px;text-align:right;">
+      <span style="font-size:11px;font-weight:700;color:var(--r);">Ver →</span>
     </td>
   </tr>`;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// MODAL — DETALLE DE ANOMALÍA
+// MODAL
 // ════════════════════════════════════════════════════════════════════════════
 function openModal(id) {
   selectedTx = String(id);
@@ -502,15 +697,15 @@ function renderModal() {
   const maxShap = reasons.length > 0 ? Math.max(...reasons.map(r => r.peso_shap)) : 1;
 
   const actionCfg = [
-    { key: 'Autorizado',  icon: '✓', cls: 'bg-green-600 hover:bg-green-700 text-white' },
-    { key: 'Desestimado', icon: '✗', cls: 'bg-slate-500 hover:bg-slate-600 text-white' },
-    { key: 'Escalado',    icon: '↑', cls: 'bg-orange-500 hover:bg-orange-600 text-white' },
+    { key:'Autorizado',  icon:'✓', bg:'#16a34a' },
+    { key:'Desestimado', icon:'✗', bg:'#525252' },
+    { key:'Escalado',    icon:'↑', bg:'#ea580c' },
   ];
-  const actionBtns = actionCfg.map(({ key, icon, cls }) => {
+  const actionBtns = actionCfg.map(({key,icon,bg}) => {
     const isActive = estado === key;
-    return `<button onclick="takeAction('${tx.trace_t_transaccion}','${key}')"
-      class="text-sm font-semibold px-4 py-2 rounded-lg transition-all ${cls}
-             ${isActive ? 'ring-2 ring-offset-2 ring-current' : 'opacity-80 hover:opacity-100'}">
+    return `<button onclick="takeAction('${tx.trace_row_id}','${key}')"
+      style="background:${bg};color:#fff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:2px;cursor:pointer;letter-spacing:0.03em;transition:opacity 0.15s;${isActive?'outline:2px solid '+bg+';outline-offset:2px;':'opacity:0.72;'}"
+      onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${isActive?'1':'0.72'}'">
       ${icon} ${key}
     </button>`;
   }).join('');
@@ -518,89 +713,95 @@ function renderModal() {
   const resRef = tx.trace_t_cve_res && tx.trace_t_cve_res !== 'None' && String(tx.trace_t_cve_res).trim();
 
   document.getElementById('modal-content').innerHTML = `
-  <!-- Modal header -->
-  <div class="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 rounded-t-2xl z-10">
-    <div class="flex items-start justify-between gap-4">
-      <div class="flex-1">
-        <div class="flex flex-wrap items-center gap-2 mb-1.5">
+  <div style="background:var(--ca);border-bottom:1px solid var(--bo);padding:18px 24px;" class="sticky top-0 z-10">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+      <div style="flex:1;">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;">
           ${sevBadge(tx.severity)}
-          <span class="text-xs font-mono text-slate-400">Rango global #${tx.anomaly_rank}</span>
+          <span style="font-size:11px;font-family:monospace;color:var(--lt);">Rango global #${tx.anomaly_rank}</span>
           ${estadoBadge(estado)}
         </div>
-        <h2 class="font-bold text-slate-800 text-base leading-tight">
-          Folio&nbsp;${tx.trace_t_folio}${tx.trace_t_folio_ext && tx.trace_t_folio_ext!=='0' ? '-'+tx.trace_t_folio_ext : ''}
-          &nbsp;·&nbsp; Cuarto&nbsp;${tx.trace_t_cuarto ?? '–'}
-          &nbsp;·&nbsp; <code>${tx.trace_t_codigo}</code>
+        <h2 style="font-weight:800;color:var(--dk);font-size:15px;line-height:1.3;letter-spacing:-0.01em;">
+          Folio&nbsp;${tx.trace_t_folio}${tx.trace_t_folio_ext&&tx.trace_t_folio_ext!=='0'?'-'+tx.trace_t_folio_ext:''}
+          &nbsp;·&nbsp;Cuarto&nbsp;${tx.trace_t_cuarto??'–'}
+          &nbsp;·&nbsp;<code>${tx.trace_t_codigo}</code>
         </h2>
-        <p class="text-xs text-slate-400 mt-0.5">${fmtDate(tx.trace_t_timestamp)}</p>
+        <p style="font-size:11px;color:var(--lt);margin-top:4px;">${fmtDate(tx.trace_t_timestamp)}</p>
       </div>
-      <button onclick="closeModal()"
-        class="text-slate-400 hover:text-slate-700 text-2xl leading-none flex-shrink-0 mt-1 transition-colors">
-        ✕
-      </button>
+      <button onclick="closeModal()" style="color:var(--lt);display:flex;flex-shrink:0;margin-top:2px;cursor:pointer;transition:color 0.12s;"
+        onmouseover="this.style.color='var(--dk)'" onmouseout="this.style.color='var(--lt)'">${IC.close}</button>
     </div>
   </div>
 
-  <!-- Monto banner -->
-  <div class="px-6 py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
-    <div class="flex items-baseline gap-3 flex-wrap">
-      <span class="text-3xl font-extrabold text-slate-900 tracking-tight">${fmt(tx.monto)}</span>
-      <span class="text-sm text-slate-500 font-medium">${tx.es_abono ? '📥 Abono / Crédito' : '📤 Cargo'}</span>
-      ${resRef ? `<span class="text-xs text-slate-400 border border-slate-200 px-2 py-0.5 rounded-md">Res. ${resRef}</span>` : ''}
+  <div style="padding:16px 24px;background:var(--bg);border-bottom:1px solid var(--bo);">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:32px;font-weight:900;color:var(--dk);letter-spacing:-0.02em;line-height:1;">${fmt(tx.monto)}</span>
+      <span style="font-size:11px;font-weight:700;color:var(--md);letter-spacing:0.06em;text-transform:uppercase;">
+        ${tx.es_abono?'↓ Abono / Crédito':'↑ Cargo'}
+      </span>
+      ${resRef?`<span style="font-size:11px;color:var(--lt);border:1px solid var(--bo);padding:2px 8px;border-radius:2px;">Res. ${resRef}</span>`:''}
     </div>
   </div>
 
-  <!-- Explicación principal -->
-  <div class="px-6 pt-5 pb-4">
-    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+  <div style="padding:20px 24px;">
+    <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:16px;">
       Por qué el sistema marcó esta transacción
     </p>
-    <div class="space-y-4">
-      ${reasons.length === 0
-        ? `<p class="text-sm text-slate-600 italic bg-slate-50 rounded-lg px-4 py-3">${tx.explanation}</p>`
-        : reasons.map((r, i) => {
-            const barW = Math.round(r.peso_shap / maxShap * 100);
-            const barColor = i === 0 ? '#3b82f6' : i === 1 ? '#6366f1' : '#8b5cf6';
-            return `
-            <div class="flex gap-3">
-              <span class="text-xl flex-shrink-0 mt-0.5">${catIcon(r.categoria)}</span>
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="text-sm font-semibold text-slate-700">${r.categoria}</span>
-                  <span class="text-xs text-slate-400 font-mono">${r.peso_shap.toFixed(3)}</span>
-                </div>
-                <div class="h-1.5 bg-slate-100 rounded-full mb-2">
-                  <div class="h-1.5 rounded-full shap-fill" style="width:${barW}%; background:${barColor}"></div>
-                </div>
-                <p class="text-sm text-slate-600 leading-relaxed">${r.texto}.</p>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      ${reasons.length===0
+        ?`<p style="font-size:13px;color:var(--md);font-style:italic;background:var(--bg);border-radius:2px;padding:12px 16px;">${tx.explanation}</p>`
+        :reasons.map((r,i)=>{
+          const barW = Math.round(r.peso_shap/maxShap*100);
+          const barColors = ['#d64040','#6366f1','#8b5cf6'];
+          return `
+          <div style="display:flex;gap:12px;">
+            <span style="color:var(--lt);display:flex;flex-shrink:0;margin-top:2px;">${IC[CAT_TYPE[r.categoria]??'info']}</span>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+                <span style="font-size:13px;font-weight:700;color:var(--dk);">${r.categoria}</span>
+                <span style="font-size:11px;color:var(--lt);font-family:monospace;">${r.peso_shap.toFixed(3)}</span>
               </div>
-            </div>`;
-          }).join('')}
+              <div style="height:3px;background:var(--bo);border-radius:1px;margin-bottom:7px;">
+                <div class="shap-fill" style="height:3px;border-radius:1px;width:${barW}%;background:${barColors[i]??'#8b5cf6'};"></div>
+              </div>
+              <p style="font-size:13px;color:var(--md);line-height:1.5;">${r.texto}.</p>
+            </div>
+          </div>`;
+        }).join('')}
     </div>
   </div>
 
-  <!-- Tomar acción -->
-  <div class="px-6 py-5 border-t border-slate-100">
-    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Tomar acción</p>
-    <div class="flex flex-wrap gap-2 mb-4">
-      ${actionBtns}
-    </div>
-    <textarea id="nota-input-${tx.trace_t_transaccion}" rows="2"
+  <div style="padding:16px 24px;border-top:1px solid var(--bo);">
+    <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:12px;">Tomar acción</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${estado!=='Pendiente'?'8':'14'}px;">${actionBtns}</div>
+    ${estado !== 'Pendiente' ? `
+    <div style="margin-bottom:14px;">
+      <button onclick="takeAction('${tx.trace_row_id}','Pendiente')"
+        style="font-size:11px;font-weight:700;color:var(--lt);cursor:pointer;background:transparent;border:1px solid var(--bo);padding:5px 12px;border-radius:2px;letter-spacing:0.03em;transition:all 0.12s;"
+        onmouseover="this.style.color='var(--dk)';this.style.borderColor='var(--bd)'"
+        onmouseout="this.style.color='var(--lt)';this.style.borderColor='var(--bo)'">
+        ↺ Regresar a Pendiente
+      </button>
+    </div>` : ''}
+    <textarea id="nota-input-${tx.trace_row_id}" rows="2"
       placeholder="Agregar nota (queda registrada junto a la decisión)..."
-      class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 resize-none text-slate-700 placeholder:text-slate-300"
+      style="width:100%;font-size:13px;border:1px solid var(--bo);border-radius:2px;padding:8px 12px;resize:none;color:var(--dk);background:var(--ca);"
     >${nota}</textarea>
-    <button id="btn-nota-${tx.trace_t_transaccion}"
-      onclick="saveNota('${tx.trace_t_transaccion}')"
-      class="mt-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium">
+    <button id="btn-nota-${tx.trace_row_id}" onclick="saveNota('${tx.trace_row_id}')"
+      style="margin-top:6px;font-size:11px;font-weight:700;color:var(--r);cursor:pointer;letter-spacing:0.03em;">
       Guardar nota
     </button>
-  </div>
-  `;
+  </div>`;
 }
 
-function takeAction(id, action) {
-  if (!STATES[id]) STATES[id] = {};
-  STATES[id].estado = action;
+function takeAction(rowId, action) {
+  const id = String(rowId);
+  if (action === 'Pendiente') {
+    if (STATES[id]) { delete STATES[id].estado; if (!STATES[id].nota) delete STATES[id]; }
+  } else {
+    if (!STATES[id]) STATES[id] = {};
+    STATES[id].estado = action;
+  }
   saveStates();
   renderModal();
   if (currentView === 'dashboard') renderDashboard();
@@ -622,123 +823,182 @@ function saveNota(id) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// ESTADÍSTICAS TAB
+// ESTADÍSTICAS
 // ════════════════════════════════════════════════════════════════════════════
 function renderStats() {
-  // Category counts
+  const filtered  = getFiltered();
+  const allCats   = [...new Set(DATA.flatMap(d => d.categories.split(' | ')))].sort();
+  const hasFilters = filters.fechaPreset || filters.categoria || filters.severity || filters.estado;
+
   const catCounts = {};
-  DATA.forEach(d => {
-    d.categories.split(' | ').forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
-  });
-  const topCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  filtered.forEach(d => { d.categories.split(' | ').forEach(c => { catCounts[c] = (catCounts[c]||0)+1; }); });
+  const topCats = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
 
-  // Severity counts
-  const sevCounts = { Alta: 0, Media: 0, Informativa: 0 };
-  DATA.forEach(d => { if (sevCounts[d.severity] !== undefined) sevCounts[d.severity]++; });
+  const sevCounts = { Alta:0, Media:0, Informativa:0 };
+  filtered.forEach(d => { if (sevCounts[d.severity]!==undefined) sevCounts[d.severity]++; });
 
-  // Hour distribution
   const hourCounts = Array(24).fill(0);
-  DATA.forEach(d => {
-    try {
-      const h = new Date(String(d.trace_t_timestamp).replace(' ', 'T')).getHours();
-      if (!isNaN(h)) hourCounts[h]++;
-    } catch {}
+  filtered.forEach(d => {
+    try { const h = new Date(String(d.trace_t_timestamp).replace(' ','T')).getHours(); if (!isNaN(h)) hourCounts[h]++; } catch {}
   });
 
-  // Estado breakdown
-  const estadoCounts = { Pendiente: 0, Autorizado: 0, Desestimado: 0, Escalado: 0 };
-  DATA.forEach(d => { const e = getState(d); if (estadoCounts[e] !== undefined) estadoCounts[e]++; });
+  const estadoCounts = { Pendiente:0, Autorizado:0, Desestimado:0, Escalado:0 };
+  filtered.forEach(d => { const e = getState(d); if (estadoCounts[e]!==undefined) estadoCounts[e]++; });
 
   document.getElementById('view-stats').innerHTML = `
 <div class="fade-in space-y-5">
 
-  <!-- Top row: donut + categories -->
+  <div style="background:var(--ca);border:1px solid var(--bo);padding:14px 20px;">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Fecha</span>
+        <select onchange="setFechaPreset(this.value)"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.fechaPreset?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;">
+          <option value="">Todas las fechas</option>
+          <option value="hoy"           ${filters.fechaPreset==='hoy'         ?'selected':''}>Hoy</option>
+          <option value="semana"        ${filters.fechaPreset==='semana'      ?'selected':''}>Esta semana</option>
+          <option value="mes"           ${filters.fechaPreset==='mes'         ?'selected':''}>Este mes</option>
+          <option value="mes_ant"       ${filters.fechaPreset==='mes_ant'     ?'selected':''}>Mes anterior</option>
+          <option value="personalizado" ${filters.fechaPreset==='personalizado'?'selected':''}>Personalizado…</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Categoría</span>
+        <select onchange="filters.categoria=this.value;renderStats()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.categoria?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;max-width:230px;">
+          <option value="">Todas las categorías</option>
+          ${allCats.map(c=>`<option value="${c}" ${filters.categoria===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Severidad</span>
+        <select onchange="filters.severity=this.value;renderStats()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.severity?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;">
+          <option value="">Todas</option>
+          <option value="Alta"        ${filters.severity==='Alta'       ?'selected':''}>Alta</option>
+          <option value="Media"       ${filters.severity==='Media'      ?'selected':''}>Media</option>
+          <option value="Informativa" ${filters.severity==='Informativa'?'selected':''}>Informativa</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Estado</span>
+        <select onchange="filters.estado=this.value;renderStats()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.estado?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);color:var(--dk);cursor:pointer;">
+          <option value="">Todos</option>
+          <option value="Pendiente"   ${filters.estado==='Pendiente'   ?'selected':''}>Pendiente</option>
+          <option value="Autorizado"  ${filters.estado==='Autorizado'  ?'selected':''}>Autorizado</option>
+          <option value="Desestimado" ${filters.estado==='Desestimado' ?'selected':''}>Desestimado</option>
+          <option value="Escalado"    ${filters.estado==='Escalado'    ?'selected':''}>Escalado</option>
+        </select>
+      </div>
+
+      <div style="margin-left:auto;display:flex;align-items:flex-end;gap:12px;padding-bottom:1px;">
+        <span style="font-size:11px;font-weight:600;color:var(--lt);">${filtered.length.toLocaleString('es-MX')} anomalía${filtered.length!==1?'s':''}</span>
+        ${hasFilters?`<button onclick="filters.fechaPreset='';filters.fechaDesde='';filters.fechaHasta='';filters.categoria='';filters.severity='';filters.estado='';renderStats()" style="font-size:11px;font-weight:700;color:var(--r);cursor:pointer;letter-spacing:0.04em;">Limpiar todo</button>`:''}
+      </div>
+
+      ${filters.fechaPreset === 'personalizado' ? `
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Desde</span>
+        <input id="fecha-desde-manual" type="text" value="${isoToDisplay(filters.fechaDesde)}" placeholder="dd/mm/aaaa"
+          onkeydown="if(event.key==='Enter')aplicarFechaManual()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.fechaDesde?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);width:128px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Hasta</span>
+        <input id="fecha-hasta-manual" type="text" value="${isoToDisplay(filters.fechaHasta)}" placeholder="dd/mm/aaaa"
+          onkeydown="if(event.key==='Enter')aplicarFechaManual()"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${filters.fechaHasta?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);width:128px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;color:transparent;">·</span>
+        <button onclick="aplicarFechaManual()" class="btn-p" style="font-size:12px;padding:5px 14px;">Aplicar</button>
+      </div>` : ''}
+
+    </div>
+  </div>
+
   <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-    <!-- Severity donut -->
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-      <p class="text-sm font-semibold text-slate-700 mb-4">Distribución por severidad</p>
-      <div class="flex items-center gap-8">
-        <div class="relative w-40 h-40 flex-shrink-0">
-          <canvas id="chart-sev"></canvas>
-        </div>
-        <div class="space-y-3">
-          ${[['Alta','#ef4444','badge-alta'],['Media','#f59e0b','badge-media'],['Informativa','#22c55e','badge-informativa']].map(([s,c,bc]) => `
-          <div class="flex items-center gap-2.5">
-            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${c}"></span>
-            <span class="text-sm text-slate-600 w-20">${s}</span>
-            <span class="text-lg font-bold text-slate-800">${sevCounts[s]}</span>
-            <span class="text-xs text-slate-400">${(sevCounts[s]/DATA.length*100).toFixed(0)}%</span>
+    <div style="background:var(--ca);border:1px solid var(--bo);padding:20px;">
+      <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:16px;">Distribución por severidad</p>
+      <div style="display:flex;align-items:center;gap:32px;">
+        <div style="position:relative;width:140px;height:140px;flex-shrink:0;"><canvas id="chart-sev"></canvas></div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          ${[['Alta','#d64040'],['Media','#c8940a'],['Informativa','#22c55e']].map(([s,c])=>`
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0;"></span>
+            <span style="font-size:13px;color:var(--md);width:76px;">${s}</span>
+            <span style="font-size:18px;font-weight:800;color:var(--dk);">${sevCounts[s]}</span>
+            <span style="font-size:11px;color:var(--lt);">${filtered.length>0?(sevCounts[s]/filtered.length*100).toFixed(0):0}%</span>
           </div>`).join('')}
-          <div class="pt-2 border-t border-slate-100">
-            <p class="text-xs text-slate-400">Total: <strong class="text-slate-600">${DATA.length}</strong> anomalías</p>
+          <div style="padding-top:8px;border-top:1px solid var(--bo);">
+            <p style="font-size:11px;color:var(--lt);">Total: <strong style="color:var(--md);">${filtered.length}</strong> anomalías</p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Estado breakdown -->
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-      <p class="text-sm font-semibold text-slate-700 mb-4">Estado de revisión</p>
-      <div class="space-y-3">
-        ${[
-          ['Pendiente',   '#3b82f6', estadoCounts.Pendiente],
-          ['Autorizado',  '#22c55e', estadoCounts.Autorizado],
-          ['Desestimado', '#94a3b8', estadoCounts.Desestimado],
-          ['Escalado',    '#f97316', estadoCounts.Escalado],
-        ].map(([label, color, cnt]) => {
-          const pct = DATA.length > 0 ? cnt / DATA.length * 100 : 0;
-          return `
-          <div>
-            <div class="flex justify-between text-sm mb-1">
-              <span class="text-slate-600">${label}</span>
-              <span class="font-semibold text-slate-800">${cnt} <span class="text-xs font-normal text-slate-400">(${pct.toFixed(0)}%)</span></span>
-            </div>
-            <div class="h-2.5 bg-slate-100 rounded-full">
-              <div class="h-2.5 rounded-full transition-all" style="width:${pct.toFixed(1)}%; background:${color}"></div>
-            </div>
-          </div>`;
-        }).join('')}
+    <div style="background:var(--ca);border:1px solid var(--bo);padding:20px;">
+      <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:16px;">Estado de revisión</p>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        ${[['Pendiente','#3b3b3b',estadoCounts.Pendiente],['Autorizado','#22c55e',estadoCounts.Autorizado],['Desestimado','#a0a0a0',estadoCounts.Desestimado],['Escalado','#ea580c',estadoCounts.Escalado]]
+          .map(([label,color,cnt])=>{
+            const pct = filtered.length>0?cnt/filtered.length*100:0;
+            return `<div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;">
+                <span style="color:var(--md);">${label}</span>
+                <span style="font-weight:700;color:var(--dk);">${cnt} <span style="font-size:11px;font-weight:400;color:var(--lt);">(${pct.toFixed(0)}%)</span></span>
+              </div>
+              <div style="height:3px;background:var(--bo);border-radius:1px;">
+                <div style="height:3px;border-radius:1px;width:${pct.toFixed(1)}%;background:${color};transition:width 0.4s;"></div>
+              </div>
+            </div>`;
+          }).join('')}
       </div>
     </div>
   </div>
 
-  <!-- Categories bar -->
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-    <p class="text-sm font-semibold text-slate-700 mb-4">Top 10 categorías detectadas</p>
+  <div style="background:var(--ca);border:1px solid var(--bo);padding:20px;">
+    <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:16px;">Top 10 categorías detectadas</p>
     <canvas id="chart-cat" height="240"></canvas>
   </div>
 
-  <!-- Hourly bar -->
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-    <p class="text-sm font-semibold text-slate-700 mb-1">Distribución horaria de anomalías</p>
-    <p class="text-xs text-slate-400 mb-4">Barras rojas = horas con mayor concentración de anomalías</p>
+  <div style="background:var(--ca);border:1px solid var(--bo);padding:20px;">
+    <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:4px;">Distribución horaria de anomalías</p>
+    <p style="font-size:11px;color:var(--lt);margin-bottom:16px;">Barras rojas = horas con mayor concentración de anomalías</p>
     <canvas id="chart-hr" height="110"></canvas>
   </div>
 
-  <!-- Category table -->
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-    <div class="px-5 py-3 border-b border-slate-100">
-      <p class="text-sm font-semibold text-slate-700">Detalle de categorías</p>
+  <div style="background:var(--ca);border:1px solid var(--bo);overflow:hidden;">
+    <div style="padding:12px 20px;border-bottom:1px solid var(--bo);">
+      <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);">Detalle de categorías</p>
     </div>
     <table class="w-full text-sm">
       <thead>
-        <tr class="bg-slate-50 text-xs text-slate-400 uppercase tracking-wide border-b border-slate-100">
-          <th class="px-5 py-2.5 text-left">Categoría</th>
-          <th class="px-5 py-2.5 text-right">Anomalías</th>
-          <th class="px-5 py-2.5 text-right">% del total</th>
-          <th class="px-5 py-2.5 w-40">Peso relativo</th>
+        <tr style="background:var(--bg);border-bottom:1px solid var(--bo);">
+          <th class="th">Categoría</th>
+          <th class="th" style="text-align:right;">Anomalías</th>
+          <th class="th" style="text-align:right;">% del total</th>
+          <th class="th" style="width:160px;">Peso relativo</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-50">
-        ${topCats.map(([cat, cnt]) => `
-        <tr class="hover:bg-slate-50 transition-colors">
-          <td class="px-5 py-2.5 text-slate-700">${catIcon(cat)} ${cat}</td>
-          <td class="px-5 py-2.5 text-right font-semibold text-slate-800">${cnt}</td>
-          <td class="px-5 py-2.5 text-right text-slate-500">${(cnt/DATA.length*100).toFixed(0)}%</td>
-          <td class="px-5 py-2.5">
-            <div class="h-2 bg-slate-100 rounded-full">
-              <div class="h-2 bg-blue-400 rounded-full" style="width:${(cnt/topCats[0][1]*100).toFixed(1)}%"></div>
+      <tbody>
+        ${topCats.map(([cat,cnt])=>`
+        <tr style="border-bottom:1px solid var(--bg);"
+            onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+          <td style="padding:9px 20px;color:var(--md);">
+            <span style="display:inline-flex;align-items:center;gap:6px;">${catIcon(cat)}<span>${cat}</span></span>
+          </td>
+          <td style="padding:9px 20px;text-align:right;font-weight:700;color:var(--dk);">${cnt}</td>
+          <td style="padding:9px 20px;text-align:right;color:var(--md);">${filtered.length>0?(cnt/filtered.length*100).toFixed(0):0}%</td>
+          <td style="padding:9px 20px;">
+            <div style="height:3px;background:var(--bo);border-radius:1px;">
+              <div style="height:3px;background:var(--r);border-radius:1px;width:${(cnt/topCats[0][1]*100).toFixed(1)}%;"></div>
             </div>
           </td>
         </tr>`).join('')}
@@ -748,7 +1008,6 @@ function renderStats() {
 
 </div>`;
 
-  // Destroy old charts
   if (chartSev) { chartSev.destroy(); chartSev = null; }
   if (chartCat) { chartCat.destroy(); chartCat = null; }
   if (chartHr)  { chartHr.destroy();  chartHr  = null; }
@@ -756,39 +1015,27 @@ function renderStats() {
   chartSev = new Chart(document.getElementById('chart-sev'), {
     type: 'doughnut',
     data: {
-      labels: ['Alta', 'Media', 'Informativa'],
-      datasets: [{
-        data: [sevCounts.Alta, sevCounts.Media, sevCounts.Informativa],
-        backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'],
-        borderWidth: 0,
-        hoverOffset: 4,
-      }],
+      labels: ['Alta','Media','Informativa'],
+      datasets: [{ data:[sevCounts.Alta,sevCounts.Media,sevCounts.Informativa], backgroundColor:['#d64040','#c8940a','#22c55e'], borderWidth:0, hoverOffset:4 }],
     },
     options: {
-      cutout: '62%',
-      plugins: { legend: { display: false }, tooltip: { callbacks: {
-        label: ctx => ` ${ctx.label}: ${ctx.parsed} (${(ctx.parsed/DATA.length*100).toFixed(0)}%)`
-      }}},
+      cutout: '65%',
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} (${filtered.length>0?(ctx.parsed/filtered.length*100).toFixed(0):0}%)`}} },
     },
   });
 
   chartCat = new Chart(document.getElementById('chart-cat'), {
     type: 'bar',
     data: {
-      labels: topCats.map(([c]) => c.length > 28 ? c.slice(0, 28) + '…' : c),
-      datasets: [{
-        data:            topCats.map(([, v]) => v),
-        backgroundColor: '#3b82f6',
-        borderRadius:    5,
-        borderSkipped:   false,
-      }],
+      labels: topCats.map(([c])=>c.length>28?c.slice(0,28)+'…':c),
+      datasets: [{ data:topCats.map(([,v])=>v), backgroundColor:'#d64040', borderRadius:2, borderSkipped:false }],
     },
     options: {
       indexAxis: 'y',
-      plugins: { legend: { display: false } },
+      plugins: { legend:{display:false} },
       scales: {
-        x: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' } },
-        y: { grid: { display: false }, ticks: { color: '#475569', font: { size: 11 } } },
+        x: { grid:{color:'#eeece8'}, ticks:{color:'#8c8c8c'} },
+        y: { grid:{display:false}, ticks:{color:'#555555',font:{size:11}} },
       },
     },
   });
@@ -797,31 +1044,21 @@ function renderStats() {
   chartHr = new Chart(document.getElementById('chart-hr'), {
     type: 'bar',
     data: {
-      labels: Array.from({ length: 24 }, (_, i) => `${i}h`),
-      datasets: [{
-        data:            hourCounts,
-        backgroundColor: hourCounts.map(v => v > maxHour * 0.6 ? '#ef4444' : v > maxHour * 0.35 ? '#f59e0b' : '#3b82f6'),
-        borderRadius:    3,
-        borderSkipped:   false,
-      }],
+      labels: Array.from({length:24},(_,i)=>`${i}h`),
+      datasets: [{ data:hourCounts, backgroundColor:hourCounts.map(v=>v>maxHour*0.6?'#d64040':v>maxHour*0.35?'#c8940a':'#c8c5bf'), borderRadius:2, borderSkipped:false }],
     },
     options: {
-      plugins: { legend: { display: false }, tooltip: {
-        callbacks: { title: ([i]) => `${i.label} h`, label: ctx => ` ${ctx.parsed.y} anomalías` }
-      }},
+      plugins: { legend:{display:false}, tooltip:{callbacks:{title:([i])=>`${i.label} h`,label:ctx=>` ${ctx.parsed.y} anomalías`}} },
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },
-        y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', stepSize: 5 } },
+        x: { grid:{display:false}, ticks:{color:'#8c8c8c',font:{size:11}} },
+        y: { grid:{color:'#eeece8'}, ticks:{color:'#8c8c8c',stepSize:5} },
       },
     },
   });
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// INIT
-// ════════════════════════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════════
-// EXPORTAR REVISIONES (feedback para el modelo que aprende)
+// EXPORTAR / APLICAR
 // ════════════════════════════════════════════════════════════════════════════
 function exportarRevisiones() {
   const reviewed = collectReviewedRows();
@@ -829,15 +1066,15 @@ function exportarRevisiones() {
     alert('No hay revisiones para exportar.\nMarca alertas como Autorizado / Desestimado / Escalado primero.');
     return;
   }
-  const rows = [['trace_row_id', 'trace_t_transaccion', 'estado', 'nota']];
+  const rows = [['trace_row_id','trace_t_transaccion','estado','nota']];
   reviewed.forEach(r => {
-    const nota = (r.nota || '').replace(/[\r\n,]/g, ' ');
-    rows.push([r.trace_row_id, r.trace_t_transaccion, r.estado, nota]);
+    const nota = (r.nota||'').replace(/[\r\n,]/g,' ');
+    rows.push([r.trace_row_id,r.trace_t_transaccion,r.estado,nota]);
   });
-  const csv = rows.map(r => r.join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  const csv  = rows.map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
   a.download = 'revisiones.csv';
   a.click();
   URL.revokeObjectURL(a.href);
@@ -850,85 +1087,67 @@ async function aplicarCorrecciones() {
     return;
   }
 
-  const btn = document.getElementById('btn-apply-corrections');
+  const btn    = document.getElementById('btn-apply-corrections');
   const status = document.getElementById('apply-status');
-  const original = btn.textContent;
+  const orig   = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'Aplicando...';
-  btn.classList.add('opacity-60', 'cursor-wait');
   status.textContent = `${reviewed.length} revisión(es)`;
   status.classList.remove('hidden');
 
   try {
-    const res = await fetch('/api/apply-corrections', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reviews: reviewed }),
-    });
+    const res    = await fetch('/api/apply-corrections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reviews:reviewed})});
     const result = await res.json();
-    if (!res.ok || !result.applied) throw new Error(result.message || `HTTP ${res.status}`);
+    if (!res.ok||!result.applied) throw new Error(result.message||`HTTP ${res.status}`);
 
-    reviewed.forEach(r => { delete STATES[r.trace_t_transaccion]; });
+    reviewed.forEach(r=>{delete STATES[r.trace_row_id];});
     saveStates();
     DATA = await loadAnomalies();
     document.getElementById('badge-total').textContent = DATA.length;
     status.textContent = `Cola ${result.queue_before.toLocaleString('es-MX')} → ${result.queue_after.toLocaleString('es-MX')}`;
     setView(currentView);
-    alert(
-      `Correcciones aplicadas.\n` +
-      `Revisiones usadas: ${result.labels_used}\n` +
-      `Cola: ${result.queue_before.toLocaleString('es-MX')} → ${result.queue_after.toLocaleString('es-MX')}\n` +
-      `Motivo: ${result.threshold_reason}`
-    );
-  } catch (e) {
-    alert(
-      `No se pudieron aplicar automaticamente.\n\n${e.message}\n\n` +
-      `Asegurate de abrir el dashboard con:\nuv run python model_final/app.py`
-    );
+    alert(`Correcciones aplicadas.\nRevisiones usadas: ${result.labels_used}\nCola: ${result.queue_before.toLocaleString('es-MX')} → ${result.queue_after.toLocaleString('es-MX')}\nMotivo: ${result.threshold_reason}`);
+  } catch(e) {
+    alert(`No se pudieron aplicar automaticamente.\n\n${e.message}\n\nAsegurate de abrir el dashboard con:\nuv run python model_final/app.py`);
   } finally {
-    btn.disabled = false;
-    btn.textContent = original;
-    btn.classList.remove('opacity-60', 'cursor-wait');
+    btn.disabled    = false;
+    btn.textContent = orig;
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════════
 async function init() {
   document.getElementById('date-display').textContent =
-    new Date().toLocaleDateString('es-MX', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    });
+    new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
   document.getElementById('view-dashboard').innerHTML = `
-    <div class="flex items-center justify-center py-24 text-slate-400">
-      <svg class="animate-spin h-6 w-6 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+    <div style="display:flex;align-items:center;justify-content:center;padding:80px 20px;color:var(--lt);">
+      <svg class="animate-spin" style="width:18px;height:18px;margin-right:10px;color:var(--r);" fill="none" viewBox="0 0 24 24">
+        <circle style="opacity:0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path style="opacity:0.75;" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
       </svg>
-      Cargando datos...
+      <span style="font-size:13px;">Cargando datos...</span>
     </div>`;
 
   try {
     DATA = await loadAnomalies();
-  } catch (e) {
+  } catch(e) {
     document.getElementById('view-dashboard').innerHTML = `
-      <div class="bg-red-50 border border-red-200 rounded-xl p-8 text-center fade-in">
-        <p class="text-lg font-semibold text-red-700 mb-2">No se pudieron cargar los datos</p>
-        <p class="text-sm text-red-500 mb-4">
-          El dashboard requiere el servidor Flask local para leer datos y aplicar correcciones.
-        </p>
-        <div class="bg-white border border-red-100 rounded-lg px-4 py-3 text-left inline-block">
-          <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Ejecuta esto en la terminal:</p>
-          <code class="text-sm text-slate-800 font-mono">
-            uv run python model_final/app.py
-          </code>
+      <div style="background:var(--rl);border:1px solid var(--rb);border-left:3px solid var(--r);padding:32px;text-align:center;" class="fade-in">
+        <p style="font-size:15px;font-weight:800;color:#b92020;margin-bottom:8px;letter-spacing:-0.01em;">No se pudieron cargar los datos</p>
+        <p style="font-size:13px;color:#b92020;margin-bottom:16px;">El dashboard requiere el servidor Flask local.</p>
+        <div style="background:var(--ca);border:1px solid var(--rb);padding:12px 20px;display:inline-block;text-align:left;border-radius:2px;">
+          <p style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--lt);margin-bottom:6px;">Ejecuta esto en la terminal:</p>
+          <code style="font-size:13px;color:var(--dk);">uv run python model_final/app.py</code>
         </div>
-        <p class="text-xs text-red-400 mt-3">Luego abre: <strong>http://127.0.0.1:5000</strong></p>
+        <p style="font-size:11px;color:#b92020;margin-top:12px;">Luego abre: <strong>http://127.0.0.1:5000</strong></p>
       </div>`;
     return;
   }
 
   document.getElementById('badge-total').textContent = DATA.length;
-
   setView('dashboard');
 }
 
