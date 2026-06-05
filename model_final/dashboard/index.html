@@ -390,7 +390,7 @@ function collectReviewedRows() {
   const rows = [];
   DATA.forEach(tx => {
     const st = STATES[tx.trace_row_id];
-    if (st && st.estado && st.estado !== 'Pendiente')
+    if (st && st.estado && (st.estado !== 'Pendiente' || (tx.estado && tx.estado !== 'Pendiente')))
       rows.push({ trace_row_id: tx.trace_row_id, trace_t_transaccion: tx.trace_t_transaccion, estado: st.estado, nota: st.nota || '' });
   });
   return rows;
@@ -1484,7 +1484,8 @@ function renderModal() {
 function takeAction(rowId, action) {
   const id = String(rowId);
   if (action === 'Pendiente') {
-    if (STATES[id]) { delete STATES[id].estado; if (!STATES[id].nota) delete STATES[id]; }
+    if (!STATES[id]) STATES[id] = {};
+    STATES[id].estado = 'Pendiente';
   } else {
     if (!STATES[id]) STATES[id] = {};
     STATES[id].estado = action;
