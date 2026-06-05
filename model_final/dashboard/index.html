@@ -574,9 +574,9 @@ function filterPanel(scope) {
       <div style="grid-column:span 2;display:flex;flex-direction:column;gap:3px;">
         <span style="font-size:9px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Vista</span>
         <div style="display:flex;border:1px solid var(--bo);border-radius:2px;overflow:hidden;background:var(--bg);">
-          <button onclick="filters.txMode='todas'" class="filter-draft" data-field="txMode" data-value="todas"
+          <button onclick="applyViewMode('todas', '${scope}')" class="filter-draft" data-field="txMode" data-value="todas"
             style="font-size:11px;font-weight:800;padding:6px 10px;${filters.txMode==='todas'?'background:var(--dk);color:#fff;':'background:transparent;color:var(--md);'}">Todas</button>
-          <button onclick="filters.txMode='anomalias'" class="filter-draft" data-field="txMode" data-value="anomalias"
+          <button onclick="applyViewMode('anomalias', '${scope}')" class="filter-draft" data-field="txMode" data-value="anomalias"
             style="font-size:11px;font-weight:800;padding:6px 10px;border-left:1px solid var(--bo);${filters.txMode==='anomalias'?'background:var(--r);color:#fff;':'background:transparent;color:var(--md);'}">Solo anomalías</button>
         </div>
       </div>
@@ -917,6 +917,18 @@ async function applyFiltersFromPanel(scope) {
   listPage = 1;
   if (scope === 'today') {
     await loadDashboardData();
+    renderDashboard();
+  } else {
+    await renderLista({ showSpinner: true });
+  }
+  updateHeaderCount();
+}
+
+async function applyViewMode(mode, scope) {
+  filters.txMode = mode;
+  listPage = 1;
+  if (scope === 'today') {
+    await loadDashboardData({ force: true });
     renderDashboard();
   } else {
     await renderLista({ showSpinner: true });
