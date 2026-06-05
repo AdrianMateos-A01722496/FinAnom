@@ -174,11 +174,21 @@ def _adapt_reviews_sql(reviews: pd.DataFrame, revisor: str = "dashboard") -> dic
         labels["nota"] = ""
     labels["trace_row_id"] = labels["trace_row_id"].astype(str)
     if labels.empty:
+        engine = db.ensure_store()
+        db.update_review_states(engine, rev)
         return {
-            "applied": False,
-            "message": "No hay revisiones usables; marca Autorizado, Desestimado o Escalado.",
+            "applied": True,
+            "message": "Estados actualizados.",
             "reviews_read": int(len(rev)),
             "labels_used": 0,
+            "metrics": {},
+            "threshold_before": 0,
+            "threshold_after": 0,
+            "threshold_reason": "",
+            "rule_weights": {},
+            "queue_before": 0,
+            "queue_after": 0,
+            "queue_delta": 0,
         }
 
     engine = db.ensure_store()
