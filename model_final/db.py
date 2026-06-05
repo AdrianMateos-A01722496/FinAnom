@@ -412,3 +412,30 @@ def query_transactions(
             "new_badge_ttl_minutes": NEW_BADGE_TTL_MINUTES,
         },
     }
+
+
+def delete_transaction(engine: Engine, tx_id: str) -> bool:
+    """Elimina una transacción por tx_id. Devuelve True si existía."""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(f"DELETE FROM {TABLE} WHERE tx_id = :tx_id"),
+            {"tx_id": str(tx_id)},
+        )
+    return result.rowcount > 0
+
+
+def load_recent_window(engine: Engine, limit: int = 500) -> pd.DataFrame:
+    """Carga solo las últimas N transacciones como contexto para scoring."""
+    ensure_store(engine)
+    if engine.dialect.name.startswith("mssql"):
+        sql = f"SELECT TOP {limit} * FROM {TABLE} ORDER BY t_timestamp DESC"
+    else:
+        sql = f"SELECT * FROM {TABLE} ORDER BY t_timestamp DESC LIMIT {limit}"
+    return pd.read_sql(sql, engine)
+
+
+def append_transaction(engine: Engine, row: pd.Series) -> None:
+    """Inserta una sola transacción ya puntuada sin reemplazar las existentes."""
+    df = pd.DataFrame([row])
+    data = normalize_for_sql(df[ALL_COLUMNS])
+    data.to_sql(TABLE, engine, if_exists="append", index=False)

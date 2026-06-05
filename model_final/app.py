@@ -85,16 +85,28 @@ def create_transaction():
 
     try:
         engine = db.ensure_store()
-        current = db.load_window(engine)
-        new_row = scoring.build_synthetic_transaction(current, scenario=scenario)
-        expanded = pd.concat([current, pd.DataFrame([new_row])], ignore_index=True)
+        context = db.load_recent_window(engine, limit=500)
+        new_row = scoring.build_synthetic_transaction(context, scenario=scenario)
+        expanded = pd.concat([context, pd.DataFrame([new_row])], ignore_index=True)
         state = db.load_feedback_state(engine)
         scored = scoring.score_window(expanded, state)
-        db.save_scored_window(engine, scored)
         tx = scored.loc[scored["tx_id"] == new_row["tx_id"]].iloc[0]
+        db.append_transaction(engine, tx)
     except Exception as exc:  # pragma: no cover - surfaced to dashboard
         return jsonify({"ok": False, "message": str(exc)}), 500
     return jsonify({"ok": True, "transaction": scoring.dashboard_record(tx)})
+
+
+@app.delete("/api/transactions/<tx_id>")
+def delete_transaction(tx_id: str):
+    try:
+        engine = db.ensure_store()
+        deleted = db.delete_transaction(engine, tx_id)
+        if not deleted:
+            return jsonify({"ok": False, "message": f"Transacción '{tx_id}' no encontrada."}), 404
+    except Exception as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 500
+    return jsonify({"ok": True, "deleted": tx_id})
 
 
 @app.post("/api/apply-corrections")
