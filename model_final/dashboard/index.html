@@ -1436,7 +1436,20 @@ function renderModal() {
       <div><strong style="color:var(--dk);">Tipo:</strong> ${tx.es_abono?'Abono / Crédito':'Cargo'}</div>
       <div><strong style="color:var(--dk);">Categoría:</strong> ${splitCats(tx).join(' · ') || 'Transaccion normal'}</div>
     </div>
-  </div>`}`;
+  </div>`}
+
+  <div style="padding:16px 24px;border-top:1px solid var(--bo);background:#fffafa;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+      <div>
+        <p style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--r);margin-bottom:4px;">Eliminar de SQL</p>
+        <p style="font-size:12px;color:var(--md);line-height:1.4;">Borra esta transacción de la tabla <code>transacciones</code>. Esta acción no se puede deshacer.</p>
+      </div>
+      <button onclick="deleteTransaction('${tx.trace_row_id}')"
+        style="background:var(--r);color:#fff;font-size:12px;font-weight:800;padding:8px 16px;border-radius:2px;cursor:pointer;letter-spacing:0.03em;">
+        Eliminar transacción
+      </button>
+    </div>
+  </div>`;
 }
 
 function takeAction(rowId, action) {
@@ -1464,6 +1477,32 @@ function saveNota(id) {
     const orig = btn.textContent;
     btn.textContent = '✓ Guardada';
     setTimeout(() => { if (btn) btn.textContent = orig; }, 1800);
+  }
+}
+
+async function deleteTransaction(rowId) {
+  const id = String(rowId);
+  const tx = getTx(id);
+  const folio = tx?.trace_t_folio ?? id;
+  const ok = confirm(`¿Seguro que quieres eliminar para siempre la transacción folio ${folio}?\n\nSe borrará de SQL y desaparecerá del dashboard.`);
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`/api/transactions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) throw new Error(payload.message || `HTTP ${res.status}`);
+
+    DATA = DATA.filter(d => String(d.trace_row_id) !== id);
+    LIST_RECORDS = LIST_RECORDS.filter(d => String(d.trace_row_id) !== id);
+    if (STATES[id]) {
+      delete STATES[id];
+      saveStates();
+    }
+    dashboardCache.clear();
+    closeModal();
+    await refreshCurrentData(true);
+  } catch (e) {
+    alert(`No se pudo eliminar la transacción.\n\n${e.message}`);
   }
 }
 

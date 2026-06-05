@@ -421,6 +421,10 @@ def delete_transaction(engine: Engine, tx_id: str) -> bool:
             text(f"DELETE FROM {TABLE} WHERE tx_id = :tx_id"),
             {"tx_id": str(tx_id)},
         )
+        conn.execute(
+            text(f"DELETE FROM {LABELS_TABLE} WHERE trace_row_id = :tx_id"),
+            {"tx_id": str(tx_id)},
+        )
     return result.rowcount > 0
 
 
