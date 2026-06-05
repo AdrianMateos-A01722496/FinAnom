@@ -279,18 +279,26 @@ def query_transactions(
     ensure_store(engine)
     expire_new_flags(engine)
     page = max(1, int(page or 1))
-    page_size = min(200, max(1, int(page_size or 25)))
+    page_size = min(10000, max(1, int(page_size or 25)))
 
     clauses: list[str] = []
     params: dict[str, Any] = {}
     latest_start, latest_end = latest_day_range(engine)
-    if scope == "today" and latest_start and latest_end:
-        clauses.append("t_timestamp >= :latest_start AND t_timestamp < :latest_end")
-        params.update({"latest_start": latest_start, "latest_end": latest_end})
-    if date_from:
+    selected_day = latest_start[:10] if latest_start else None
+    if scope == "today":
+        requested_day = pd.to_datetime(date_from, errors="coerce") if date_from else pd.NaT
+        if pd.notna(requested_day):
+            selected_day = requested_day.strftime("%Y-%m-%d")
+            params["selected_start"] = f"{selected_day} 00:00:00"
+            params["selected_end"] = (requested_day + pd.Timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+            clauses.append("t_timestamp >= :selected_start AND t_timestamp < :selected_end")
+        elif latest_start and latest_end:
+            clauses.append("t_timestamp >= :latest_start AND t_timestamp < :latest_end")
+            params.update({"latest_start": latest_start, "latest_end": latest_end})
+    elif date_from:
         clauses.append("t_timestamp >= :date_from")
         params["date_from"] = f"{date_from} 00:00:00"
-    if date_to:
+    if scope != "today" and date_to:
         clauses.append("t_timestamp < :date_to")
         end = pd.to_datetime(date_to, errors="coerce") + pd.Timedelta(days=1)
         params["date_to"] = end.strftime("%Y-%m-%d %H:%M:%S")
@@ -329,8 +337,9 @@ def query_transactions(
         params["monto_max"] = float(monto_max)
     where = " WHERE " + " AND ".join(clauses) if clauses else ""
     offset = (page - 1) * page_size
+    priority_rank = "daily_rank" if scope == "today" else "anomaly_rank"
     sort_map = {
-        "priority": "es_nueva DESC, is_anomaly DESC, anomaly_rank ASC, t_timestamp DESC",
+        "priority": f"es_nueva DESC, is_anomaly DESC, {priority_rank} ASC, t_timestamp DESC",
         "fecha": "t_timestamp",
         "hora": "t_timestamp",
         "monto": "t_monto",
@@ -357,15 +366,30 @@ def query_transactions(
             text(f"SELECT COUNT(*) FROM {TABLE}{where} AND es_nueva = 1" if where else f"SELECT COUNT(*) FROM {TABLE} WHERE es_nueva = 1"),
             params,
         ).scalar() or 0)
+        if scope == "today":
+            if "selected_start" in params:
+                base_where = " WHERE t_timestamp >= :selected_start AND t_timestamp < :selected_end"
+            elif "latest_start" in params:
+                base_where = " WHERE t_timestamp >= :latest_start AND t_timestamp < :latest_end"
+            else:
+                base_where = ""
+            from_expr = (
+                "(SELECT *, ROW_NUMBER() OVER ("
+                "ORDER BY CASE severidad WHEN 'CRITICO' THEN 0 WHEN 'ALTO' THEN 1 WHEN 'MEDIO' THEN 2 ELSE 3 END, "
+                "anomaly_score DESC, anomaly_rank ASC, t_timestamp DESC"
+                f") AS daily_rank FROM {TABLE}{base_where}) ranked"
+            )
+        else:
+            from_expr = TABLE
         if engine.dialect.name.startswith("mssql"):
             sql = (
-                f"SELECT * FROM {TABLE}{where} "
+                f"SELECT * FROM {from_expr}{where} "
                 f"ORDER BY {order_by} "
                 "OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY"
             )
         else:
             sql = (
-                f"SELECT * FROM {TABLE}{where} "
+                f"SELECT * FROM {from_expr}{where} "
                 f"ORDER BY {order_by} "
                 "LIMIT :limit OFFSET :offset"
             )
@@ -384,6 +408,7 @@ def query_transactions(
             "total_anomalias": total_anom,
             "total_nuevas": total_new,
             "latest_day": latest_start[:10] if latest_start else None,
+            "selected_day": selected_day,
             "new_badge_ttl_minutes": NEW_BADGE_TTL_MINUTES,
         },
     }

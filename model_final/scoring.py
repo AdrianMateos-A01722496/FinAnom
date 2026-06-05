@@ -272,6 +272,7 @@ def dashboard_record(row: pd.Series) -> dict[str, Any]:
         "trace_t_timestamp": str(row.get("t_timestamp")),
         "trace_t_cve_res": None if pd.isna(row.get("t_cve_res")) else str(row.get("t_cve_res")),
         "anomaly_rank": int(row.get("anomaly_rank") or 0),
+        "display_rank": int(row.get("daily_rank") or row.get("anomaly_rank") or 0),
         "severity": severity,
         "n_reasons": len(reasons),
         "categories": categories or "Sin anomalía",

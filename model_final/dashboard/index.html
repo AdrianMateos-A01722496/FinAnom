@@ -158,13 +158,13 @@ const DEFAULT_FILTERS = {
   txMode: 'todas',
 };
 let filters     = { ...DEFAULT_FILTERS };
+let dashboardDate = '';
+let dashboardPageSize = localStorage.getItem('finanom_dashboard_page_size') || 'all';
+let dashboardCache = new Map();
 let listPage    = 1;
 const PAGE_SIZE = 25;
-const LIVE_REFRESH_MS = 5000;
-let autoRefreshMinutes = Number(localStorage.getItem('finanom_auto_refresh_min') || '0');
-let autoRefreshTimer = null;
+const DASHBOARD_ALL_PAGE_SIZE = 10000;
 let simulatingScenario = null;
-let liveRefreshTimer = null;
 const MESES     = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let chartSev = null, chartCat = null, chartHr = null;
 
@@ -240,6 +240,44 @@ function getFiltered() {
 function getState(tx) { return STATES[tx.trace_row_id]?.estado ?? tx.estado ?? 'Pendiente'; }
 function getNota(tx)  { return STATES[tx.trace_row_id]?.nota  ?? ''; }
 function resetFilters() { filters = { ...DEFAULT_FILTERS }; }
+function effectiveDashboardDate() {
+  return dashboardDate || TX_META.summary?.selected_day || TX_META.summary?.latest_day || '';
+}
+function shiftISODate(iso, deltaDays) {
+  const [y, m, d] = String(iso || '').split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  return dt.toISOString().slice(0, 10);
+}
+function displayDashboardDate() {
+  const iso = effectiveDashboardDate();
+  if (!iso) return 'Día más reciente';
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+function dashboardPageSizeValue() {
+  return dashboardPageSize === 'all' ? DASHBOARD_ALL_PAGE_SIZE : Number(dashboardPageSize || 50);
+}
+function dashboardCacheKey() {
+  return JSON.stringify({
+    day: effectiveDashboardDate(),
+    page: listPage,
+    pageSize: dashboardPageSizeValue(),
+    txMode: filters.txMode,
+    q: filters.q,
+    folio: filters.folio,
+    cuarto: filters.cuarto,
+    concepto: filters.concepto,
+    categoria: filters.categoria,
+    montoMin: filters.montoMin,
+    montoMax: filters.montoMax,
+    severity: filters.severity,
+    sortBy: filters.sortBy,
+    sortDir: filters.sortDir,
+  });
+}
 function updateHeaderCount() {
   const n = TX_API_AVAILABLE
     ? Number(TX_META.summary?.total_global ?? TX_META.total ?? 0)
@@ -305,6 +343,7 @@ function normalizeRecord(tx, index = 0, forceNew = false) {
     trace_t_timestamp: tx.trace_t_timestamp ?? tx.timestamp ?? tx.fecha ?? '',
     trace_t_cve_res: tx.trace_t_cve_res ?? tx.cve_res ?? '',
     anomaly_rank: tx.anomaly_rank ?? tx.rank ?? index + 1,
+    display_rank: tx.display_rank ?? tx.daily_rank ?? tx.anomaly_rank ?? tx.rank ?? index + 1,
     severity,
     categories,
     explanation: tx.explanation ?? tx.motivos ?? (isAnomaly ? 'Transaccion marcada para revision.' : 'Transaccion normal sin senales de anomalia.'),
@@ -371,6 +410,7 @@ async function loadAnomalies() {
 }
 
 async function fetchTransactionsPage({ page = 1, pageSize = PAGE_SIZE, scope = 'all' } = {}) {
+  const dashboardDay = scope === 'today' ? effectiveDashboardDate() : '';
   const params = new URLSearchParams({
     filter: filters.txMode === 'anomalias' ? 'anomalias' : 'todas',
     scope,
@@ -380,8 +420,8 @@ async function fetchTransactionsPage({ page = 1, pageSize = PAGE_SIZE, scope = '
     cuarto: filters.cuarto || '',
     concepto: filters.concepto || '',
     categoria: filters.categoria || '',
-    date_from: scope === 'today' ? '' : (filters.fechaDesde || ''),
-    date_to: scope === 'today' ? '' : (filters.fechaHasta || ''),
+    date_from: scope === 'today' ? dashboardDay : (filters.fechaDesde || ''),
+    date_to: scope === 'today' ? dashboardDay : (filters.fechaHasta || ''),
     monto_min: filters.montoMin || '',
     monto_max: filters.montoMax || '',
     sort_by: filters.sortBy || 'priority',
@@ -439,14 +479,28 @@ async function loadTransactionsForList({ showSpinner = false, scope = 'all' } = 
   DATA = FALLBACK_DATA;
 }
 
-async function loadDashboardData() {
+async function loadDashboardData({ force = false } = {}) {
+  const requestKey = dashboardCacheKey();
+  if (!force && dashboardCache.has(requestKey)) {
+    const cached = dashboardCache.get(requestKey);
+    LIST_RECORDS = cached.records;
+    TX_META = cached.meta;
+    DATA = mergeRecords(DATA, cached.records);
+    dashboardDate = cached.meta.summary?.selected_day || dashboardDate || cached.meta.summary?.latest_day || '';
+    TX_STATUS = 'Backend /api/transactions';
+    return;
+  }
+
   if (TX_API_AVAILABLE !== false) {
     try {
-      const page = await fetchTransactionsPage({ page: listPage, pageSize: PAGE_SIZE, scope: 'today' });
+      const page = await fetchTransactionsPage({ page: listPage, pageSize: dashboardPageSizeValue(), scope: 'today' });
       TX_API_AVAILABLE = true;
       LIST_RECORDS = page.records;
       DATA = mergeRecords(DATA, page.records);
       TX_META = page;
+      dashboardDate = page.summary?.selected_day || dashboardDate || page.summary?.latest_day || '';
+      dashboardCache.set(requestKey, { records: page.records, meta: page });
+      dashboardCache.set(dashboardCacheKey(), { records: page.records, meta: page });
       TX_STATUS = 'Backend /api/transactions';
       return;
     } catch (e) {
@@ -506,6 +560,17 @@ function categoryOptions() {
 
 function filterPanel(scope) {
   const isToday = scope === 'today';
+  const dateFilters = isToday ? '' : `
+      <label style="grid-column:span 2;display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Fecha desde</span>
+        <input id="f-fecha-desde" type="date" value="${filters.fechaDesde}"
+          style="padding:5px 8px;font-size:12px;border:1px solid var(--bo);border-radius:2px;background:var(--ca);">
+      </label>
+      <label style="grid-column:span 2;display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Fecha hasta</span>
+        <input id="f-fecha-hasta" type="date" value="${filters.fechaHasta}"
+          style="padding:5px 8px;font-size:12px;border:1px solid var(--bo);border-radius:2px;background:var(--ca);">
+      </label>`;
   return `
   <div style="background:var(--ca);border:1px solid var(--bo);padding:14px 16px;">
     <div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px;align-items:end;">
@@ -518,16 +583,7 @@ function filterPanel(scope) {
             style="font-size:11px;font-weight:800;padding:6px 10px;border-left:1px solid var(--bo);${filters.txMode==='anomalias'?'background:var(--r);color:#fff;':'background:transparent;color:var(--md);'}">Solo anomalías</button>
         </div>
       </div>
-      <label style="grid-column:span 2;display:flex;flex-direction:column;gap:3px;">
-        <span style="font-size:9px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Fecha desde</span>
-        <input id="f-fecha-desde" type="date" value="${filters.fechaDesde}" ${isToday?'disabled':''}
-          style="padding:5px 8px;font-size:12px;border:1px solid var(--bo);border-radius:2px;background:${isToday?'var(--bg)':'var(--ca)'};">
-      </label>
-      <label style="grid-column:span 2;display:flex;flex-direction:column;gap:3px;">
-        <span style="font-size:9px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Fecha hasta</span>
-        <input id="f-fecha-hasta" type="date" value="${filters.fechaHasta}" ${isToday?'disabled':''}
-          style="padding:5px 8px;font-size:12px;border:1px solid var(--bo);border-radius:2px;background:${isToday?'var(--bg)':'var(--ca)'};">
-      </label>
+      ${dateFilters}
       <label style="grid-column:span 2;display:flex;flex-direction:column;gap:3px;">
         <span style="font-size:9px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Folio</span>
         <input id="f-folio" value="${escAttr(filters.folio)}" placeholder="Ej. 132262" style="padding:5px 8px;font-size:12px;border:1px solid var(--bo);border-radius:2px;background:var(--ca);">
@@ -586,30 +642,61 @@ function filterPanel(scope) {
         <button onclick="clearFilters('${scope}')" class="btn-s" style="font-size:12px;padding:7px 14px;">Borrar</button>
       </div>
     </div>
-    <div style="border-top:1px solid var(--bo);margin-top:12px;padding-top:10px;display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--lt);">
-      <span>${isToday ? `Mostrando el día demo ${TX_META.summary?.latest_day || 'más reciente'}` : 'Histórico completo'}</span>
-      <span>${TX_STATUS}${TX_META.summary?.new_badge_ttl_minutes ? ` · etiqueta Nueva expira en ${TX_META.summary.new_badge_ttl_minutes} min` : ''} · auto 5s</span>
-    </div>
   </div>`;
+}
+
+async function changeDashboardDay(deltaDays) {
+  const base = effectiveDashboardDate();
+  const next = shiftISODate(base, deltaDays);
+  if (!next) return;
+  dashboardDate = next;
+  listPage = 1;
+  await loadDashboardData();
+  renderDashboard();
+  updateHeaderCount();
+}
+
+async function setDashboardPageSize(value) {
+  dashboardPageSize = value === 'all' ? 'all' : String(Number(value || 50));
+  localStorage.setItem('finanom_dashboard_page_size', dashboardPageSize);
+  listPage = 1;
+  await loadDashboardData();
+  renderDashboard();
+  updateHeaderCount();
 }
 
 function transactionTable(scope, title) {
   const pageTotal = Number(TX_META.total || LIST_RECORDS.length);
   const pageTotalPages = Math.max(1, Number(TX_META.total_pages || 1));
+  const latestDay = TX_META.summary?.latest_day || '';
+  const selectedDay = effectiveDashboardDate();
+  const isLatestDay = latestDay && selectedDay >= latestDay;
+  const showingAll = scope === 'today' && dashboardPageSize === 'all';
   return `
   <div class="fade-in space-y-4">
     ${filterPanel(scope)}
     <div style="background:var(--ca);border:1px solid var(--bo);overflow:hidden;">
-      <div style="padding:12px 16px;border-bottom:1px solid var(--bo);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--bo);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;">
         <div>
-          <p style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);">${title}</p>
-          <p style="font-size:12px;color:var(--md);margin-top:3px;">${pageTotal.toLocaleString('es-MX')} resultado${pageTotal!==1?'s':''}</p>
+          <p style="font-size:12px;color:var(--md);">${pageTotal.toLocaleString('es-MX')} resultado${pageTotal!==1?'s':''}</p>
         </div>
-        <button onclick="refreshCurrentData()" class="btn-s" style="font-size:11px;padding:6px 12px;">Refresh</button>
+        ${scope === 'today' ? `
+        <div style="display:flex;align-items:center;gap:14px;justify-content:center;text-align:center;">
+          <button onclick="changeDashboardDay(-1)" class="btn-s" style="font-size:18px;line-height:1;padding:7px 12px;" title="Día anterior">‹</button>
+          <div>
+            <p style="font-size:9px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:var(--lt);margin-bottom:3px;">Día mostrado</p>
+            <p style="font-size:22px;font-weight:900;color:var(--dk);line-height:1.15;text-transform:capitalize;">${displayDashboardDate()}</p>
+            <p style="font-size:11px;color:var(--lt);margin-top:3px;font-family:monospace;">${selectedDay || 'más reciente'}</p>
+          </div>
+          <button onclick="changeDashboardDay(1)" ${isLatestDay?'disabled':''} class="btn-s" style="font-size:18px;line-height:1;padding:7px 12px;" title="Día siguiente">›</button>
+        </div>` : ''}
+        <div style="display:flex;justify-content:flex-end;">
+          <button onclick="refreshCurrentData(true)" class="btn-s" style="font-size:11px;padding:6px 12px;">Refresh</button>
+        </div>
       </div>
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto" style="height:min(72vh,760px);min-height:620px;overflow:auto;">
         <table class="w-full text-sm">
-          <thead>
+          <thead style="position:sticky;top:0;z-index:1;">
             <tr style="background:var(--bg);border-bottom:1px solid var(--bo);">
               <th class="th">Etiqueta</th><th class="th">Rango</th><th class="th">Folio</th><th class="th">Cuarto</th>
               <th class="th">Concepto</th><th class="th" style="text-align:right;">Monto</th>
@@ -624,12 +711,23 @@ function transactionTable(scope, title) {
           </tbody>
         </table>
       </div>
-      <div style="border-top:1px solid var(--bo);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:11px;color:var(--lt);">Página ${listPage} de ${pageTotalPages}</span>
-        <div style="display:flex;gap:8px;">
+      <div style="border-top:1px solid var(--bo);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:11px;color:var(--lt);">${showingAll ? `Mostrando todos los ${pageTotal.toLocaleString('es-MX')} resultados` : `Página ${listPage} de ${pageTotalPages}`}</span>
+          ${scope === 'today' ? `
+          <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--lt);">
+            Mostrar
+            <select onchange="setDashboardPageSize(this.value)" style="padding:5px 8px;font-size:11px;border:1px solid var(--bo);border-radius:2px;background:var(--ca);color:var(--md);">
+              <option value="50" ${dashboardPageSize==='50'?'selected':''}>50</option>
+              <option value="100" ${dashboardPageSize==='100'?'selected':''}>100</option>
+              <option value="all" ${dashboardPageSize==='all'?'selected':''}>Todos</option>
+            </select>
+          </label>` : ''}
+        </div>
+        ${showingAll ? '' : `<div style="display:flex;gap:8px;">
           <button onclick="if(listPage>1){listPage--;refreshCurrentData()}" ${listPage<=1?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">← Anterior</button>
           <button onclick="if(listPage<${pageTotalPages}){listPage++;refreshCurrentData()}" ${listPage>=pageTotalPages?'disabled':''} class="btn-s" style="font-size:11px;padding:5px 12px;">Siguiente →</button>
-        </div>
+        </div>`}
       </div>
     </div>
   </div>`;
@@ -638,7 +736,7 @@ function transactionTable(scope, title) {
 function renderDashboard() {
   document.getElementById('view-dashboard').innerHTML = transactionTable(
     'today',
-    'Transacciones de hoy (día más reciente de la base)'
+    'Transacciones del día mostrado'
   );
 }
 
@@ -839,26 +937,17 @@ async function clearFilters(scope) {
   updateHeaderCount();
 }
 
-async function refreshCurrentData() {
+async function refreshCurrentData(force = false) {
   if (currentView === 'lista') {
     await renderLista({ showSpinner: true });
   } else if (currentView === 'dashboard') {
-    await loadDashboardData();
+    if (force) dashboardCache.clear();
+    await loadDashboardData({ force });
     renderDashboard();
   } else {
     renderStats();
   }
   updateHeaderCount();
-}
-
-function setAutoRefreshMinutes(value) {
-  autoRefreshMinutes = Number(value || 0);
-  localStorage.setItem('finanom_auto_refresh_min', String(autoRefreshMinutes));
-  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-  autoRefreshTimer = null;
-  if (autoRefreshMinutes > 0) {
-    autoRefreshTimer = setInterval(() => refreshCurrentData(), autoRefreshMinutes * 60 * 1000);
-  }
 }
 
 async function simularTransaccion(scenario) {
@@ -873,6 +962,7 @@ async function simularTransaccion(scenario) {
     const payload = await res.json();
     if (!res.ok || !payload.transaction) throw new Error(payload.message || `HTTP ${res.status}`);
     const tx = normalizeRecord(payload.transaction, 0, true);
+    dashboardCache.clear();
     DATA = mergeRecords(DATA, [tx]);
     LIST_RECORDS = mergeRecords([tx], LIST_RECORDS);
     filters.txMode = 'todas';
@@ -954,24 +1044,15 @@ async function renderLista({ showSpinner = false } = {}) {
           <option value="Informativa" ${filters.severity==='Informativa'?'selected':''}>Informativa</option>
         </select>
       </div>
-      <button onclick="refreshCurrentData()" class="btn-s" style="font-size:11px;padding:6px 12px;">Refresh</button>
+      <button onclick="refreshCurrentData(true)" class="btn-s" style="font-size:11px;padding:6px 12px;">Refresh</button>
       <button onclick="simularTransaccion('normal')" ${simulatingScenario?'disabled':''} class="btn-s" style="font-size:11px;padding:6px 12px;">${simulatingScenario==='normal'?'Simulando...':'Simular normal'}</button>
       <button onclick="simularTransaccion('anomala')" ${simulatingScenario?'disabled':''} class="btn-p" style="font-size:11px;padding:6px 12px;">${simulatingScenario==='anomala'?'Simulando...':'Simular anómala'}</button>
-      <div style="display:flex;flex-direction:column;gap:3px;">
-        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Auto-refresh</span>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <input type="number" min="0" step="1" value="${autoRefreshMinutes || ''}" placeholder="0"
-            onchange="setAutoRefreshMinutes(this.value)"
-            style="padding:5px 8px;width:64px;font-size:12px;border:1px solid ${autoRefreshMinutes?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
-          <span style="font-size:11px;color:var(--lt);">min</span>
-        </div>
-      </div>
       <div style="margin-left:auto;display:flex;align-items:flex-end;gap:12px;padding-bottom:1px;">
         <span style="font-size:11px;font-weight:600;color:var(--lt);">${pageTotal.toLocaleString('es-MX')} resultado${pageTotal!==1?'s':''}</span>
         ${pageHasFilters?`<button onclick="resetFilters();listPage=1;renderLista({showSpinner:true})" style="font-size:11px;font-weight:700;color:var(--r);cursor:pointer;letter-spacing:0.04em;">Limpiar</button>`:''}
       </div>
     </div>
-    <div style="border-top:1px solid var(--bo);padding-top:10px;font-size:11px;color:var(--lt);">${TX_STATUS}${autoRefreshMinutes ? ` · auto cada ${autoRefreshMinutes} min` : ''}</div>
+    <div style="border-top:1px solid var(--bo);padding-top:10px;font-size:11px;color:var(--lt);">${TX_STATUS}</div>
   </div>
 
   <div style="background:var(--ca);border:1px solid var(--bo);overflow:hidden;">
@@ -1044,18 +1125,9 @@ async function renderLista({ showSpinner = false } = {}) {
           onblur="if(filters.q!==this.value){filters.q=this.value;applyListFilter()}"
           style="padding:5px 8px;font-size:12px;border:1px solid ${filters.q?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
       </div>
-      <button onclick="refreshTransactions()" class="btn-s" style="font-size:11px;padding:6px 12px;">Refresh</button>
+      <button onclick="refreshCurrentData(true)" class="btn-s" style="font-size:11px;padding:6px 12px;">Refresh</button>
       <button onclick="simularTransaccion('normal')" ${simulatingScenario?'disabled':''} class="btn-s" style="font-size:11px;padding:6px 12px;">${simulatingScenario==='normal'?'Simulando...':'Simular normal'}</button>
       <button onclick="simularTransaccion('anomala')" ${simulatingScenario?'disabled':''} class="btn-p" style="font-size:11px;padding:6px 12px;">${simulatingScenario==='anomala'?'Simulando...':'Simular anómala'}</button>
-      <div style="display:flex;flex-direction:column;gap:3px;">
-        <span style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Auto-refresh</span>
-        <select onchange="setAutoRefreshMinutes(this.value)" style="padding:5px 10px;font-size:12px;border:1px solid var(--bo);border-radius:2px;background:var(--ca);">
-          <option value="0" ${autoRefreshMinutes===0?'selected':''}>Manual</option>
-          <option value="1" ${autoRefreshMinutes===1?'selected':''}>1 min</option>
-          <option value="5" ${autoRefreshMinutes===5?'selected':''}>5 min</option>
-          <option value="10" ${autoRefreshMinutes===10?'selected':''}>10 min</option>
-        </select>
-      </div>
       <span style="margin-left:auto;font-size:11px;color:var(--lt);padding-bottom:7px;">${TX_STATUS}</span>
     </div>
 
@@ -1197,10 +1269,11 @@ function listaRow(tx) {
   const allCats = splitCats(tx);
   const shown   = allCats.slice(0,2);
   const extra   = allCats.length - shown.length;
+  const visibleRank = tx.display_rank ?? tx.anomaly_rank;
   return `
   <tr class="clickable" style="border-bottom:1px solid var(--bg);${tx.es_nueva?'background:#fff7ed;box-shadow:inset 3px 0 0 #ea580c;':''}" onclick="openModal('${tx.trace_row_id}')">
     <td style="padding:10px 16px;">${anomalyLabel(tx)}</td>
-    <td style="padding:10px 16px;font-size:11px;font-family:monospace;color:var(--lt);">${isTxAnomaly(tx) ? '#'+tx.anomaly_rank : '–'}</td>
+    <td style="padding:10px 16px;font-size:11px;font-family:monospace;color:var(--lt);">${isTxAnomaly(tx) ? '#'+visibleRank : '–'}</td>
     <td style="padding:10px 16px;font-weight:700;color:var(--dk);font-size:13px;">${tx.trace_t_folio}</td>
     <td style="padding:10px 16px;color:var(--md);font-size:12px;">${tx.trace_t_cuarto??'–'}</td>
     <td style="padding:10px 16px;"><code>${tx.trace_t_codigo}</code></td>
@@ -1251,6 +1324,9 @@ function renderModal() {
     try { reasons = JSON.parse(tx.reasons_json); } catch {}
   }
   const maxShap = reasons.length > 0 ? Math.max(...reasons.map(r => r.peso_shap)) : 1;
+  const rankLabel = tx.display_rank && tx.display_rank !== tx.anomaly_rank
+    ? `Rango del día #${tx.display_rank} · global #${tx.anomaly_rank}`
+    : `Rango global #${tx.anomaly_rank}`;
 
   const actionCfg = [
     { key:'Autorizado',  icon:'✓', bg:'#16a34a' },
@@ -1274,7 +1350,7 @@ function renderModal() {
       <div style="flex:1;">
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;">
           ${sevBadge(tx.severity)}
-          ${isAnomaly ? `<span style="font-size:11px;font-family:monospace;color:var(--lt);">Rango global #${tx.anomaly_rank}</span>` : '<span style="font-size:11px;font-family:monospace;color:var(--lt);">Sin alerta</span>'}
+          ${isAnomaly ? `<span style="font-size:11px;font-family:monospace;color:var(--lt);">${rankLabel}</span>` : '<span style="font-size:11px;font-family:monospace;color:var(--lt);">Sin alerta</span>'}
           ${anomalyLabel(tx)}
           ${estadoBadge(estado)}
         </div>
@@ -1669,7 +1745,8 @@ async function aplicarCorrecciones() {
 
     reviewed.forEach(r=>{delete STATES[r.trace_row_id];});
     saveStates();
-    await refreshCurrentData();
+    dashboardCache.clear();
+    await refreshCurrentData(true);
     updateHeaderCount();
     status.textContent = `Cola ${result.queue_before.toLocaleString('es-MX')} → ${result.queue_after.toLocaleString('es-MX')}`;
     alert(`Correcciones aplicadas.\nRevisiones usadas: ${result.labels_used}\nCola: ${result.queue_before.toLocaleString('es-MX')} → ${result.queue_after.toLocaleString('es-MX')}\nMotivo: ${result.threshold_reason}`);
@@ -1714,11 +1791,6 @@ async function init() {
   }
 
   updateHeaderCount();
-  setAutoRefreshMinutes(autoRefreshMinutes);
-  if (liveRefreshTimer) clearInterval(liveRefreshTimer);
-  liveRefreshTimer = setInterval(() => {
-    if (!document.hidden) refreshCurrentData();
-  }, LIVE_REFRESH_MS);
   setView('dashboard');
 }
 
