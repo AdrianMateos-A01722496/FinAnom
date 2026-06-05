@@ -887,8 +887,10 @@ async function applyListFilter() {
   await applyFiltersFromPanel(currentView === 'dashboard' ? 'today' : 'all');
 }
 
-function readFiltersFromPanel() {
-  const val = id => document.getElementById(id)?.value?.trim() || '';
+function readFiltersFromPanel(scope) {
+  const rootId = scope === 'today' ? 'view-dashboard' : 'view-lista';
+  const root = document.getElementById(rootId) || document;
+  const val = id => root.querySelector(`#${id}`)?.value?.trim() || '';
   return {
     fechaDesde: val('f-fecha-desde'),
     fechaHasta: val('f-fecha-hasta'),
@@ -905,7 +907,7 @@ function readFiltersFromPanel() {
 }
 
 async function applyFiltersFromPanel(scope) {
-  const next = readFiltersFromPanel();
+  const next = readFiltersFromPanel(scope);
   if (scope === 'today') {
     next.fechaDesde = '';
     next.fechaHasta = '';
