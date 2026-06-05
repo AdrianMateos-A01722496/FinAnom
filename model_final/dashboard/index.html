@@ -40,9 +40,9 @@
     .badge-media       { background: #fdf9ec; color: #7a5200; border: 1px solid #e8d070; }
     .badge-informativa { background: #f0fdf4; color: #15692b; border: 1px solid #bbf7d0; }
     .badge-pendiente   { background: #f5f4f2; color: #3a3a3a; border: 1px solid #d8d5d0; }
-    .badge-autorizado  { background: #f0fdf4; color: #15692b; border: 1px solid #bbf7d0; }
-    .badge-desestimado { background: #dc2626; color: #ffffff; border: 1px solid #b91c1c; }
-    .badge-escalado    { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .badge-autorizado  { background: #0f2a44; color: #ffffff; border: 1px solid #0b1f33; }
+    .badge-desestimado { background: #f97316; color: #ffffff; border: 1px solid #ea580c; }
+    .badge-escalado    { background: #7c3aed; color: #ffffff; border: 1px solid #6d28d9; }
     .badge-anomalia    { background: #fdf1f1; color: #b92020; border: 1px solid #f0c4c4; }
     .badge-normal      { background: #eef7f1; color: #15692b; border: 1px solid #bbf7d0; }
     .badge-nueva       { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
@@ -137,6 +137,7 @@ let STATES     = JSON.parse(localStorage.getItem('finanom_states_v2') || '{}');
 function saveStates() { localStorage.setItem('finanom_states_v2', JSON.stringify(STATES)); }
 let currentView = 'dashboard';
 let selectedTx  = null;
+let pendingDeleteTx = null;
 const DEFAULT_FILTERS = {
   folio: '',
   cuarto: '',
@@ -158,12 +159,13 @@ let filters     = { ...DEFAULT_FILTERS };
 let dashboardDate = '';
 let dashboardPageSize = localStorage.getItem('finanom_dashboard_page_size') || 'all';
 let dashboardCache = new Map();
+let statsFilters = { initialized: false, dateFrom: '', dateTo: '', trend: 'day' };
 let listPage    = 1;
 const PAGE_SIZE = 25;
 const DASHBOARD_ALL_PAGE_SIZE = 10000;
 let simulatingScenario = null;
 const MESES     = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-let chartSev = null, chartCat = null, chartHr = null;
+let chartSev = null, chartCat = null, chartHr = null, chartTrend = null;
 
 // ════════════════════════════════════════════════════════════════════════════
 // SVG ICONS
@@ -380,7 +382,8 @@ function sevBadge(sev) {
 }
 function estadoBadge(e) {
   const cls = { Pendiente:'badge-pendiente', Autorizado:'badge-autorizado', Desestimado:'badge-desestimado', Escalado:'badge-escalado' };
-  return `<span class="badge ${cls[e]??'badge-desestimado'}">${e}</span>`;
+  const label = { Autorizado:'SI es anomalía', Desestimado:'NO es anomalía', Escalado:'Escalado' };
+  return `<span class="badge ${cls[e]??'badge-desestimado'}">${label[e] ?? e}</span>`;
 }
 function getTx(id) { return LIST_RECORDS.find(d => String(d.trace_row_id) === String(id)) || DATA.find(d => String(d.trace_row_id) === String(id)); }
 function collectReviewedRows() {
@@ -534,7 +537,7 @@ async function setView(v) {
   });
   if (v === 'dashboard') { listPage = 1; await loadDashboardData(); renderDashboard(); }
   if (v === 'lista')     { listPage = 1; await renderLista({ showSpinner: true }); }
-  if (v === 'stats')     renderStats();
+  if (v === 'stats')     await renderStats();
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -695,7 +698,7 @@ function transactionTable(scope, title) {
         <table class="w-full text-sm">
           <thead style="position:sticky;top:0;z-index:1;">
             <tr style="background:var(--bg);border-bottom:1px solid var(--bo);">
-              <th class="th">Etiqueta</th><th class="th">Rango</th><th class="th">Folio</th><th class="th">Cuarto</th>
+              <th class="th">Etiqueta</th><th class="th">Prioridad</th><th class="th">Folio</th><th class="th">Cuarto</th>
               <th class="th">Concepto</th><th class="th" style="text-align:right;">Monto</th>
               <th class="th">Fecha</th><th class="th">Categorías</th>
               <th class="th">Severidad</th><th class="th">Estado</th><th style="padding:9px 16px;"></th>
@@ -1312,6 +1315,7 @@ function listaRow(tx) {
 // ════════════════════════════════════════════════════════════════════════════
 function openModal(id) {
   selectedTx = String(id);
+  pendingDeleteTx = null;
   renderModal();
   document.getElementById('modal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1320,6 +1324,7 @@ function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
   document.body.style.overflow = '';
   selectedTx = null;
+  pendingDeleteTx = null;
 }
 
 function renderModal() {
@@ -1340,20 +1345,21 @@ function renderModal() {
     : `Rango global #${tx.anomaly_rank}`;
 
   const actionCfg = [
-    { key:'Autorizado',  icon:'✓', bg:'#16a34a' },
-    { key:'Desestimado', icon:'✗', bg:'#525252' },
-    { key:'Escalado',    icon:'↑', bg:'#ea580c' },
+    { key:'Autorizado',  label:'SI es anomalía', icon:'✓', bg:'#0f2a44' },
+    { key:'Desestimado', label:'NO es anomalía', icon:'✗', bg:'#f97316' },
+    { key:'Escalado',    label:'Escalado', icon:'↑', bg:'#7c3aed' },
   ];
-  const actionBtns = actionCfg.map(({key,icon,bg}) => {
+  const actionBtns = actionCfg.map(({key,label,icon,bg}) => {
     const isActive = estado === key;
     return `<button onclick="takeAction('${tx.trace_row_id}','${key}')"
       style="background:${bg};color:#fff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:2px;cursor:pointer;letter-spacing:0.03em;transition:opacity 0.15s;${isActive?'outline:2px solid '+bg+';outline-offset:2px;':'opacity:0.72;'}"
       onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${isActive?'1':'0.72'}'">
-      ${icon} ${key}
+      ${icon} ${label}
     </button>`;
   }).join('');
 
   const resRef = tx.trace_t_cve_res && tx.trace_t_cve_res !== 'None' && String(tx.trace_t_cve_res).trim();
+  const deletePending = pendingDeleteTx === String(tx.trace_row_id);
 
   document.getElementById('modal-content').innerHTML = `
   <div style="background:var(--ca);border-bottom:1px solid var(--bo);padding:18px 24px;" class="sticky top-0 z-10">
@@ -1415,7 +1421,17 @@ function renderModal() {
     </div>
   </div>
 
-  ${isAnomaly ? `
+  ${!isAnomaly ? `
+  <div style="padding:16px 24px;border-top:1px solid var(--bo);">
+    <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:12px;">Detalle operativo</p>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;font-size:12px;color:var(--md);">
+      <div><strong style="color:var(--dk);">Transacción:</strong> ${tx.trace_t_transaccion}</div>
+      <div><strong style="color:var(--dk);">Referencia:</strong> ${tx.trace_t_referencia ?? tx.trace_t_cve_res ?? '–'}</div>
+      <div><strong style="color:var(--dk);">Tipo:</strong> ${tx.es_abono?'Abono / Crédito':'Cargo'}</div>
+      <div><strong style="color:var(--dk);">Categoría:</strong> ${splitCats(tx).join(' · ') || 'Transaccion normal'}</div>
+    </div>
+  </div>` : ''}
+
   <div style="padding:16px 24px;border-top:1px solid var(--bo);">
     <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:12px;">Tomar acción</p>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${estado!=='Pendiente'?'8':'14'}px;">${actionBtns}</div>
@@ -1436,27 +1452,31 @@ function renderModal() {
       style="margin-top:6px;font-size:11px;font-weight:700;color:var(--r);cursor:pointer;letter-spacing:0.03em;">
       Guardar nota
     </button>
-  </div>` : `
-  <div style="padding:16px 24px;border-top:1px solid var(--bo);">
-    <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:12px;">Detalle operativo</p>
-    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;font-size:12px;color:var(--md);">
-      <div><strong style="color:var(--dk);">Transacción:</strong> ${tx.trace_t_transaccion}</div>
-      <div><strong style="color:var(--dk);">Referencia:</strong> ${tx.trace_t_referencia ?? tx.trace_t_cve_res ?? '–'}</div>
-      <div><strong style="color:var(--dk);">Tipo:</strong> ${tx.es_abono?'Abono / Crédito':'Cargo'}</div>
-      <div><strong style="color:var(--dk);">Categoría:</strong> ${splitCats(tx).join(' · ') || 'Transaccion normal'}</div>
-    </div>
-  </div>`}
+  </div>
 
-  <div style="padding:16px 24px;border-top:1px solid var(--bo);background:#fffafa;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+  <div style="padding:8px 24px;border-top:1px solid var(--bo);background:#fffafa;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
       <div>
-        <p style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--r);margin-bottom:4px;">Eliminar de SQL</p>
-        <p style="font-size:12px;color:var(--md);line-height:1.4;">Borra esta transacción de la tabla <code>transacciones</code>. Esta acción no se puede deshacer.</p>
+        <p style="font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--r);margin-bottom:2px;">Eliminar de SQL</p>
+        <p style="font-size:9px;color:var(--md);line-height:1.25;">
+          ${deletePending ? `Confirma eliminar el folio ${tx.trace_t_folio}.` : `Borra esta transacción de <code>transacciones</code>. No se puede deshacer.`}
+        </p>
       </div>
-      <button onclick="deleteTransaction('${tx.trace_row_id}')"
-        style="background:var(--r);color:#fff;font-size:12px;font-weight:800;padding:8px 16px;border-radius:2px;cursor:pointer;letter-spacing:0.03em;">
+      ${deletePending ? `
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button onclick="cancelDeleteTransaction()"
+          style="background:transparent;color:var(--md);font-size:9px;font-weight:700;padding:3px 8px;border:1px solid var(--bo);border-radius:2px;cursor:pointer;letter-spacing:0.03em;">
+          Cancelar
+        </button>
+        <button onclick="deleteTransaction('${tx.trace_row_id}')"
+          style="background:var(--r);color:#fff;font-size:9px;font-weight:800;padding:3px 8px;border-radius:2px;cursor:pointer;letter-spacing:0.03em;">
+          Confirmar
+        </button>
+      </div>` : `
+      <button onclick="requestDeleteTransaction('${tx.trace_row_id}')"
+        style="background:var(--r);color:#fff;font-size:9px;font-weight:800;padding:3px 8px;border-radius:2px;cursor:pointer;letter-spacing:0.03em;">
         Eliminar transacción
-      </button>
+      </button>`}
     </div>
   </div>`;
 }
@@ -1489,12 +1509,18 @@ function saveNota(id) {
   }
 }
 
+function requestDeleteTransaction(rowId) {
+  pendingDeleteTx = String(rowId);
+  renderModal();
+}
+
+function cancelDeleteTransaction() {
+  pendingDeleteTx = null;
+  renderModal();
+}
+
 async function deleteTransaction(rowId) {
   const id = String(rowId);
-  const tx = getTx(id);
-  const folio = tx?.trace_t_folio ?? id;
-  const ok = confirm(`¿Seguro que quieres eliminar para siempre la transacción folio ${folio}?\n\nSe borrará de SQL y desaparecerá del dashboard.`);
-  if (!ok) return;
 
   try {
     const res = await fetch(`/api/transactions/${encodeURIComponent(id)}`, { method: 'DELETE' });
@@ -1518,7 +1544,7 @@ async function deleteTransaction(rowId) {
 // ════════════════════════════════════════════════════════════════════════════
 // ESTADÍSTICAS
 // ════════════════════════════════════════════════════════════════════════════
-function renderStats() {
+function renderStatsLegacy() {
   const filtered  = getFiltered();
   const allCats   = [...new Set(DATA.flatMap(d => splitCats(d)))].sort();
   const hasFilters = filters.fechaPreset || filters.categoria || filters.severity || filters.estado;
@@ -1745,6 +1771,255 @@ function renderStats() {
       scales: {
         x: { grid:{display:false}, ticks:{color:'#8c8c8c',font:{size:11}} },
         y: { grid:{color:'#eeece8'}, ticks:{color:'#8c8c8c',stepSize:5} },
+      },
+    },
+  });
+}
+
+function initStatsFilters() {
+  if (statsFilters.initialized) return;
+  const day = effectiveDashboardDate();
+  statsFilters = { initialized: true, dateFrom: day, dateTo: day, trend: 'day' };
+}
+
+function statsHasDateFilters() {
+  return Boolean(statsFilters.dateFrom || statsFilters.dateTo);
+}
+
+function statsRangeLabel(summary) {
+  if (!statsHasDateFilters()) return 'Histórico completo';
+  const from = summary?.date_from || statsFilters.dateFrom;
+  const to = summary?.date_to || statsFilters.dateTo;
+  if (from && to && from === to) return `Día ${from}`;
+  if (from && to) return `${from} a ${to}`;
+  if (from) return `Desde ${from}`;
+  return `Hasta ${to}`;
+}
+
+function estadoStatsLabel(key) {
+  return { Pendiente:'Pendiente', Autorizado:'SI es anomalía', Desestimado:'NO es anomalía', Escalado:'Escalado' }[key] || key;
+}
+
+async function fetchStats() {
+  const params = new URLSearchParams({
+    date_from: statsFilters.dateFrom || '',
+    date_to: statsFilters.dateTo || '',
+    trend: statsFilters.trend || 'day',
+  });
+  const res = await fetch(`/api/stats?${params.toString()}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function applyStatsFilters() {
+  const from = document.getElementById('stats-date-from')?.value || '';
+  const to = document.getElementById('stats-date-to')?.value || '';
+  if (from && to && from > to) {
+    alert('La fecha inicial no puede ser mayor que la fecha final.');
+    return;
+  }
+  statsFilters.initialized = true;
+  statsFilters.dateFrom = from;
+  statsFilters.dateTo = to;
+  await renderStats();
+}
+
+async function clearStatsFilters() {
+  statsFilters.initialized = true;
+  statsFilters.dateFrom = '';
+  statsFilters.dateTo = '';
+  await renderStats();
+}
+
+async function setStatsTrend(value) {
+  statsFilters.trend = value || 'day';
+  await renderStats();
+}
+
+function destroyStatsCharts() {
+  if (chartSev) { chartSev.destroy(); chartSev = null; }
+  if (chartCat) { chartCat.destroy(); chartCat = null; }
+  if (chartHr)  { chartHr.destroy();  chartHr  = null; }
+  if (chartTrend) { chartTrend.destroy(); chartTrend = null; }
+}
+
+function trendTitle() {
+  return {
+    day: 'Anomalías por día',
+    week: 'Anomalías por semana',
+    month: 'Anomalías por mes',
+    ytd: 'Anomalías year to date',
+  }[statsFilters.trend] || 'Anomalías por día';
+}
+
+async function renderStats() {
+  initStatsFilters();
+  const root = document.getElementById('view-stats');
+  destroyStatsCharts();
+  root.innerHTML = loadingMarkup('Calculando estadísticas históricas...');
+
+  let payload;
+  try {
+    payload = await fetchStats();
+  } catch (e) {
+    root.innerHTML = `
+      <div style="background:var(--rl);border:1px solid var(--rb);border-left:3px solid var(--r);padding:24px;" class="fade-in">
+        <p style="font-size:14px;font-weight:800;color:#b92020;margin-bottom:6px;">No se pudieron cargar las estadísticas</p>
+        <p style="font-size:12px;color:#b92020;">${e.message}</p>
+      </div>`;
+    return;
+  }
+
+  const summary = payload.summary || {};
+  const review = payload.review_status || {};
+  const anomalyTotal = Number(summary.anomaly_total || 0);
+  const totalRange = Number(summary.total_range || 0);
+  const totalGlobal = Number(summary.total_global || 0);
+  const reviewItems = [
+    ['Pendiente', '#3b3b3b', Number(review.Pendiente || 0)],
+    ['Autorizado', '#0f2a44', Number(review.Autorizado || 0)],
+    ['Desestimado', '#f97316', Number(review.Desestimado || 0)],
+    ['Escalado', '#7c3aed', Number(review.Escalado || 0)],
+  ];
+  const trendPoints = payload.trend?.points || [];
+  const hourly = payload.hourly || Array.from({length:24},(_,hour)=>({hour,count:0}));
+  const rangeLabel = statsRangeLabel(summary);
+
+  root.innerHTML = `
+<div class="fade-in space-y-5">
+
+  <div style="background:var(--ca);border:1px solid var(--bo);padding:16px 20px;">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Desde</span>
+        <input id="stats-date-from" type="date" value="${statsFilters.dateFrom}"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${statsFilters.dateFrom?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Hasta</span>
+        <input id="stats-date-to" type="date" value="${statsFilters.dateTo}"
+          style="padding:5px 10px;font-size:12px;border:1px solid ${statsFilters.dateTo?'var(--r)':'var(--bo)'};border-radius:2px;background:var(--ca);">
+      </div>
+      <button onclick="applyStatsFilters()" class="btn-p" style="font-size:12px;padding:6px 14px;">Aplicar</button>
+      <button onclick="clearStatsFilters()" class="btn-s" style="font-size:12px;padding:6px 14px;">Borrar filtros</button>
+      <div style="margin-left:auto;text-align:right;">
+        <p style="font-size:10px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--lt);">Rango estadístico</p>
+        <p style="font-size:13px;font-weight:800;color:var(--dk);margin-top:2px;">${rangeLabel}</p>
+        <p style="font-size:11px;color:var(--lt);margin-top:2px;">Base SQL: ${totalGlobal.toLocaleString('es-MX')} transacciones históricas</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+    <div style="background:var(--ca);border:1px solid var(--bo);padding:22px;">
+      <p style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:12px;">Anomalías detectadas</p>
+      <p style="font-size:44px;font-weight:900;color:var(--r);line-height:1;">${anomalyTotal.toLocaleString('es-MX')}</p>
+      <p style="font-size:12px;color:var(--md);margin-top:10px;">${totalRange.toLocaleString('es-MX')} transacciones en el rango</p>
+    </div>
+    <div style="background:var(--ca);border:1px solid var(--bo);padding:22px;">
+      <p style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:12px;">Tasa de anomalía</p>
+      <p style="font-size:44px;font-weight:900;color:var(--dk);line-height:1;">${totalRange ? (anomalyTotal / totalRange * 100).toFixed(1) : '0.0'}%</p>
+      <p style="font-size:12px;color:var(--md);margin-top:10px;">Sobre transacciones del rango</p>
+    </div>
+    <div style="background:var(--ca);border:1px solid var(--bo);padding:22px;">
+      <p style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:12px;">Pendientes de revisión</p>
+      <p style="font-size:44px;font-weight:900;color:var(--dk);line-height:1;">${Number(review.Pendiente || 0).toLocaleString('es-MX')}</p>
+      <p style="font-size:12px;color:var(--md);margin-top:10px;">${anomalyTotal ? (Number(review.Pendiente || 0) / anomalyTotal * 100).toFixed(0) : 0}% de anomalías</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div style="background:var(--ca);border:1px solid var(--bo);padding:20px;">
+      <p style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:16px;">Estado de revisión de anomalías</p>
+      <div style="display:flex;align-items:center;gap:28px;">
+        <div style="position:relative;width:150px;height:150px;flex-shrink:0;"><canvas id="chart-review"></canvas></div>
+        <div style="display:flex;flex-direction:column;gap:11px;flex:1;">
+          ${reviewItems.map(([key,color,count])=>{
+            const pct = anomalyTotal ? count / anomalyTotal * 100 : 0;
+            return `<div>
+              <div style="display:flex;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:4px;">
+                <span style="color:var(--md);display:flex;align-items:center;gap:7px;"><span style="width:8px;height:8px;background:${color};border-radius:50%;"></span>${estadoStatsLabel(key)}</span>
+                <span style="font-weight:800;color:var(--dk);">${count.toLocaleString('es-MX')} <span style="font-size:11px;font-weight:400;color:var(--lt);">(${pct.toFixed(0)}%)</span></span>
+              </div>
+              <div style="height:3px;background:var(--bo);border-radius:1px;"><div style="height:3px;width:${pct.toFixed(1)}%;background:${color};border-radius:1px;"></div></div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--ca);border:1px solid var(--bo);padding:20px;">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px;">
+        <div>
+          <p style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);">${trendTitle()}</p>
+          <p style="font-size:11px;color:var(--lt);margin-top:3px;">${payload.trend?.base === 'ytd' ? 'Acumulado del año hasta la fecha final' : 'Mismo rango del filtro superior'}</p>
+        </div>
+        <select onchange="setStatsTrend(this.value)"
+          style="padding:5px 10px;font-size:12px;border:1px solid var(--bo);border-radius:2px;background:var(--ca);">
+          <option value="day" ${statsFilters.trend==='day'?'selected':''}>Día</option>
+          <option value="week" ${statsFilters.trend==='week'?'selected':''}>Semana</option>
+          <option value="month" ${statsFilters.trend==='month'?'selected':''}>Mes</option>
+          <option value="ytd" ${statsFilters.trend==='ytd'?'selected':''}>Year to date</option>
+        </select>
+      </div>
+      <canvas id="chart-trend" height="170"></canvas>
+    </div>
+  </div>
+
+  <div style="background:var(--ca);border:1px solid var(--bo);padding:20px;">
+    <p style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--lt);margin-bottom:4px;">Distribución horaria de anomalías</p>
+    <p style="font-size:11px;color:var(--lt);margin-bottom:16px;">Calculada sobre el rango estadístico seleccionado</p>
+    <canvas id="chart-hr" height="115"></canvas>
+  </div>
+
+</div>`;
+
+  const reviewValues = reviewItems.map(([, , count]) => count);
+  chartSev = new Chart(document.getElementById('chart-review'), {
+    type: 'doughnut',
+    data: {
+      labels: reviewItems.map(([key])=>estadoStatsLabel(key)),
+      datasets: [{ data: reviewValues, backgroundColor: reviewItems.map(([,color])=>color), borderWidth:0, hoverOffset:4 }],
+    },
+    options: {
+      cutout: '68%',
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed.toLocaleString('es-MX')}`}} },
+    },
+  });
+
+  chartTrend = new Chart(document.getElementById('chart-trend'), {
+    type: 'bar',
+    data: {
+      labels: trendPoints.map(p=>p.period),
+      datasets: [{ data: trendPoints.map(p=>p.count), backgroundColor:'#d64040', borderRadius:2, borderSkipped:false }],
+    },
+    options: {
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString('es-MX')} anomalías`}} },
+      scales: {
+        x: { grid:{display:false}, ticks:{color:'#8c8c8c',font:{size:10}, maxRotation:45, minRotation:0} },
+        y: { grid:{color:'#eeece8'}, ticks:{color:'#8c8c8c',precision:0} },
+      },
+    },
+  });
+
+  const hourValues = Array.from({length:24},(_,h)=>Number(hourly.find(x=>Number(x.hour)===h)?.count || 0));
+  const maxHour = Math.max(1, ...hourValues);
+  chartHr = new Chart(document.getElementById('chart-hr'), {
+    type: 'bar',
+    data: {
+      labels: Array.from({length:24},(_,i)=>`${i}h`),
+      datasets: [{
+        data: hourValues,
+        backgroundColor: hourValues.map(v=>v>maxHour*0.6?'#d64040':v>maxHour*0.35?'#f97316':'#c8c5bf'),
+        borderRadius:2,
+        borderSkipped:false,
+      }],
+    },
+    options: {
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString('es-MX')} anomalías`}} },
+      scales: {
+        x: { grid:{display:false}, ticks:{color:'#8c8c8c',font:{size:11}} },
+        y: { grid:{color:'#eeece8'}, ticks:{color:'#8c8c8c',precision:0} },
       },
     },
   });

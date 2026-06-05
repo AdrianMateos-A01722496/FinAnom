@@ -76,6 +76,18 @@ def transactions():
     return jsonify(result)
 
 
+@app.get("/api/stats")
+def stats():
+    engine = db.ensure_store()
+    result = db.query_stats(
+        engine,
+        date_from=request.args.get("date_from", ""),
+        date_to=request.args.get("date_to", ""),
+        trend=request.args.get("trend", "day"),
+    )
+    return jsonify(result)
+
+
 @app.post("/api/transactions")
 def create_transaction():
     payload = request.get_json(silent=True) or {}

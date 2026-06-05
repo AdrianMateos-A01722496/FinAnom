@@ -414,6 +414,121 @@ def query_transactions(
     }
 
 
+def _date_range_params(date_from: str = "", date_to: str = "") -> tuple[list[str], dict[str, Any]]:
+    clauses: list[str] = []
+    params: dict[str, Any] = {}
+    if date_from:
+        start = pd.to_datetime(date_from, errors="coerce")
+        if pd.notna(start):
+            clauses.append("t_timestamp >= :date_from")
+            params["date_from"] = start.strftime("%Y-%m-%d 00:00:00")
+    if date_to:
+        end = pd.to_datetime(date_to, errors="coerce")
+        if pd.notna(end):
+            clauses.append("t_timestamp < :date_to")
+            params["date_to"] = (end + pd.Timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+    return clauses, params
+
+
+def query_stats(
+    engine: Engine,
+    date_from: str = "",
+    date_to: str = "",
+    trend: str = "day",
+) -> dict[str, Any]:
+    ensure_store(engine)
+    expire_new_flags(engine)
+    latest_start, _ = latest_day_range(engine)
+    clauses, params = _date_range_params(date_from, date_to)
+    range_where = " WHERE " + " AND ".join(clauses) if clauses else ""
+    anomaly_clauses = [*clauses, "is_anomaly = 1"]
+    anomaly_where = " WHERE " + " AND ".join(anomaly_clauses)
+    dialect = engine.dialect.name
+
+    if dialect.startswith("mssql"):
+        hour_expr = "DATEPART(hour, t_timestamp)"
+        day_expr = "CONVERT(varchar(10), CAST(t_timestamp AS date), 23)"
+        week_expr = "CONCAT(DATEPART(year, t_timestamp), '-W', RIGHT('0' + CAST(DATEPART(iso_week, t_timestamp) AS varchar(2)), 2))"
+        month_expr = "CONCAT(DATEPART(year, t_timestamp), '-', RIGHT('0' + CAST(DATEPART(month, t_timestamp) AS varchar(2)), 2))"
+    else:
+        hour_expr = "CAST(strftime('%H', t_timestamp) AS INTEGER)"
+        day_expr = "date(t_timestamp)"
+        week_expr = "strftime('%Y-W%W', t_timestamp)"
+        month_expr = "strftime('%Y-%m', t_timestamp)"
+
+    trend = trend if trend in {"day", "week", "month", "ytd"} else "day"
+    trend_expr = {"day": day_expr, "week": week_expr, "month": month_expr, "ytd": month_expr}[trend]
+    trend_params = dict(params)
+    trend_clauses = list(anomaly_clauses)
+    trend_base = "range"
+    if trend == "ytd":
+        anchor = pd.to_datetime(date_to or (latest_start[:10] if latest_start else ""), errors="coerce")
+        if pd.notna(anchor):
+            trend_clauses = ["t_timestamp >= :trend_from", "t_timestamp < :trend_to", "is_anomaly = 1"]
+            trend_params = {
+                "trend_from": pd.Timestamp(anchor.year, 1, 1).strftime("%Y-%m-%d 00:00:00"),
+                "trend_to": (anchor.normalize() + pd.Timedelta(days=1)).strftime("%Y-%m-%d 00:00:00"),
+            }
+            trend_base = "ytd"
+    trend_where = " WHERE " + " AND ".join(trend_clauses)
+
+    with engine.begin() as conn:
+        total_global = int(conn.execute(text(f"SELECT COUNT(*) FROM {TABLE}")).scalar() or 0)
+        total_range = int(conn.execute(text(f"SELECT COUNT(*) FROM {TABLE}{range_where}"), params).scalar() or 0)
+        anomaly_total = int(conn.execute(text(f"SELECT COUNT(*) FROM {TABLE}{anomaly_where}"), params).scalar() or 0)
+        review_rows = conn.execute(
+            text(
+                f"SELECT COALESCE(NULLIF(estado, ''), 'Pendiente') AS estado, COUNT(*) AS n "
+                f"FROM {TABLE}{anomaly_where} GROUP BY COALESCE(NULLIF(estado, ''), 'Pendiente')"
+            ),
+            params,
+        ).mappings().all()
+        hourly_rows = conn.execute(
+            text(
+                f"SELECT {hour_expr} AS hour, COUNT(*) AS n "
+                f"FROM {TABLE}{anomaly_where} GROUP BY {hour_expr} ORDER BY {hour_expr}"
+            ),
+            params,
+        ).mappings().all()
+        trend_rows = conn.execute(
+            text(
+                f"SELECT {trend_expr} AS period, COUNT(*) AS n "
+                f"FROM {TABLE}{trend_where} GROUP BY {trend_expr} ORDER BY {trend_expr}"
+            ),
+            trend_params,
+        ).mappings().all()
+
+    review = {k: 0 for k in ["Pendiente", "Autorizado", "Desestimado", "Escalado"]}
+    for row in review_rows:
+        key = str(row["estado"] or "Pendiente")
+        if key in review:
+            review[key] = int(row["n"] or 0)
+
+    hourly = [0] * 24
+    for row in hourly_rows:
+        hour = int(row["hour"] or 0)
+        if 0 <= hour <= 23:
+            hourly[hour] = int(row["n"] or 0)
+
+    return {
+        "summary": {
+            "total_global": total_global,
+            "total_range": total_range,
+            "anomaly_total": anomaly_total,
+            "date_from": date_from or "",
+            "date_to": date_to or "",
+            "latest_day": latest_start[:10] if latest_start else None,
+        },
+        "review_status": review,
+        "hourly": [{"hour": h, "count": hourly[h]} for h in range(24)],
+        "trend": {
+            "granularity": trend,
+            "base": trend_base,
+            "points": [{"period": str(row["period"]), "count": int(row["n"] or 0)} for row in trend_rows],
+        },
+    }
+
+
 def delete_transaction(engine: Engine, tx_id: str) -> bool:
     """Elimina una transacción por tx_id. Devuelve True si existía."""
     with engine.begin() as conn:
