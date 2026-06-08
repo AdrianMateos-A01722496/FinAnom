@@ -1,0 +1,9 @@
+n_anomalias: 47087
+n_nodes: 282
+n_edges_unique: 663
+n_components: 30
+largest_component_nodes: 89
+top_category_transactions: DUPLICADO
+top_category_nodes: DUPLICADO
+max_node_score: 0.6285329768843708
+max_node_rule_score: 160.0
